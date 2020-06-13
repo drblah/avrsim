@@ -5,7 +5,7 @@ mod hexreader;
 
 fn main() {
 
-    let core = avrcore::Avrcore{
+    let mut core = avrcore::Avrcore{
         sreg: avrcore::SREG::default(),
         sp: avrcore::StackPointer::default(),
         pc: 0,
@@ -17,9 +17,9 @@ fn main() {
     };
 
 
-    avrcore::print_core(core);
+    hexreader::read_ihex("/home/drblah/rust/avrsim/testprogram.hex", &mut core);
 
-    hexreader::read_ihex("/home/drblah/rust/avrsim/testprogram.hex");
+    avrcore::print_core(&core);
 
     //println!("{:?}", core);
 

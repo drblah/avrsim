@@ -1,3 +1,4 @@
+use crate::avrcore::Avrcore;
 use std::fs;
 use regex::Regex;
 
@@ -35,7 +36,7 @@ struct IhexLine {
 
 
 
-fn split_ihex_line(line: &str) {
+fn split_ihex_line(line: &str) -> IhexLine {
     if line.starts_with(":") {
         let mut ihexline = IhexLine{ byte_count: 0, 
                                      address: 0, 
@@ -46,20 +47,6 @@ fn split_ihex_line(line: &str) {
         let re = Regex::new(r":(?P<byte_count>[[:xdigit:]]{2})(?P<address>[[:xdigit:]]{4})(?P<record_type>[[:xdigit:]]{2})(?P<data>[[:xdigit:]]+)?(?P<check_sum>[[:xdigit:]]{2})").unwrap();
 
         let caps = re.captures(line).unwrap();
-
-        println!(
-            "byte_count : {}\n\
-             address    : {}\n\
-             record_type: {}\n\
-             data       : {}\n\
-             check_sum  : {}\n\
-            ",
-            caps.get(1).map_or("None", |m| m.as_str()),
-            caps.get(2).map_or("None", |m| m.as_str()),
-            caps.get(3).map_or("None", |m| m.as_str()),
-            caps.get(4).map_or("None", |m| m.as_str()),
-            caps.get(5).map_or("None", |m| m.as_str())
-        );
 
         for i in 1..6 {
             let field = caps.get(i).map_or("None", |m| m.as_str());
@@ -108,7 +95,9 @@ fn split_ihex_line(line: &str) {
             }
         }
 
-        println!("{:?}\n-----", ihexline)
+        //println!("{:?}\n-----", ihexline)
+
+        ihexline
 
     }
     else {
@@ -117,11 +106,18 @@ fn split_ihex_line(line: &str) {
 
 }
 
-pub fn read_ihex(path: &str) {
+pub fn read_ihex(path: &str, core: &mut Avrcore) {
     let data = fs::read_to_string(path).expect("Cannot read file");
 
+    let mut flash_index = 0;
+
     for line in data.lines() {
-        split_ihex_line(line);
+        let ihex = split_ihex_line(line);
+
+        for bytes in ihex.data.chunks(2) {
+            core.flash[flash_index] = (bytes[1] as u16)<<8 | (bytes[0] as u16) ;
+            flash_index = flash_index + 1;
+        }
         //println!("{}", line);
     }
 
