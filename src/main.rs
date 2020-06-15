@@ -23,8 +23,10 @@ fn main() {
 
     avrcore::print_core(&core);
 
-    for _ in 0..10 {
-        disassembler::disassm_next(&mut core);
+    for _ in 0..30 {
+        let instruction = disassembler::disassm_next(&mut core);
+
+        instruction.pretty_print();
     }
 
     //println!("{:?}", core);
