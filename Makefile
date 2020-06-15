@@ -1,3 +1,6 @@
+disassemble: testprogram.hex
+	avr-objdump -j .sec1 -d -m avr5 testprogram.hex > testprogram.hexdisassembly
+
 hex: testprogram.s testprogram.bin
 	avr-objcopy -j .text -j.data -O ihex testprogram.bin testprogram.hex
 
