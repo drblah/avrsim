@@ -25,7 +25,7 @@ pub struct Avrcore {
     // Registers
     pub sreg: SREG, // Status register
     pub sp: StackPointer, // Stack Pointer
-    pub pc: u16, // Program counter
+    pub pc: usize, // Program counter
 
     // Memories
     pub general: [u8; 32], // General purpose register file 0x0000 - 0x001F
@@ -37,8 +37,21 @@ pub struct Avrcore {
     pub flash: [u16; 16383], // 32Kbytes flash organized as 16K x 16
 }
 
+pub trait GetNextInstruction {
+    fn get_next(&mut self) -> u16;
+}
 
-pub fn print_core(core: Avrcore) {
+impl GetNextInstruction for Avrcore {
+    fn get_next(&mut self) -> u16 {
+        let instruction = self.flash[self.pc];
+        self.pc = self.pc + 1;
+
+        instruction
+    }
+}
+
+
+pub fn print_core(core: &Avrcore) {
     println!("Registers:");
     println!("\t{:?}", core.sreg);
     println!("\t{:?}", core.sp);

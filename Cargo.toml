@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 regex = "1"
+bitpat = "0.1.1"

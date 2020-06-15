@@ -1,6 +1,8 @@
 mod avrcore;
+use crate::avrcore::*;
 mod hexreader;
-
+mod disassembler;
+#[macro_use] extern crate bitpat;
 
 
 fn main() {
@@ -20,6 +22,10 @@ fn main() {
     hexreader::read_ihex("/home/drblah/rust/avrsim/testprogram.hex", &mut core);
 
     avrcore::print_core(&core);
+
+    for _ in 0..10 {
+        disassembler::disassm_next(&mut core);
+    }
 
     //println!("{:?}", core);
 
