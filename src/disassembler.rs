@@ -2,7 +2,8 @@ use crate::avrcore::*;
 
 #[derive(Debug)]
 pub enum Opcodes {
-    JMP
+    JMP,
+    EOR
 }
 
 #[derive(Debug)]
@@ -10,26 +11,6 @@ pub struct Opcodeinfo {
     opcode: Opcodes,
     is_dword: bool,
     words: Vec<u16>,
-}
-
-pub struct JMP {
-    opcode: Opcodes,
-    address: u32,
-}
-
-pub trait Instruction {
-    fn pretty_print(&self);
-    fn get_opcode(&self) -> &Opcodes;
-}
-
-impl Instruction for JMP {
-    fn pretty_print(&self) {
-        println!("JMP\t{:X}", self.address)
-    }
-
-    fn get_opcode(&self) -> &Opcodes {
-        &self.opcode
-    }
 }
 
 pub fn disassm_next(core: &mut Avrcore) -> Box<dyn Instruction> {
@@ -62,6 +43,16 @@ fn match_opcode(raw_opcode: u16) -> Result<Opcodeinfo, String> {
             }
         )
     }
+    // EOR
+    else if bitpat!(0 0 1 0 0 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
+        Ok(
+            Opcodeinfo{
+                opcode: Opcodes::EOR,
+                is_dword: false,
+                words: Vec::new()
+            }
+        )
+    }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
@@ -73,6 +64,9 @@ fn decode(opcode_info: &Opcodeinfo) -> Box<dyn Instruction> {
     match opcode_info.opcode {
         Opcodes::JMP => {
             Box::new( decode_jmp(opcode_info) )
+        },
+        Opcodes::EOR => {
+            Box::new( decode_eor(opcode_info) )
         }
     }
 }
@@ -95,5 +89,54 @@ fn decode_jmp(opcode_info: &Opcodeinfo) -> JMP {
     JMP{
         opcode: Opcodes::JMP,
         address: jmp_addr
+    }
+}
+
+fn decode_eor(opcode_info: &Opcodeinfo) -> EOR {
+    EOR {
+        opcode: Opcodes::EOR,
+        rd: 255,
+        rr: 255,
+    }
+}
+
+// Instruction definitions
+
+pub trait Instruction {
+    fn pretty_print(&self);
+    fn get_opcode(&self) -> &Opcodes;
+}
+
+//---------------------
+pub struct JMP {
+    opcode: Opcodes,
+    address: u32,
+}
+
+impl Instruction for JMP {
+    fn pretty_print(&self) {
+        println!("JMP\t{:X}", self.address)
+    }
+
+    fn get_opcode(&self) -> &Opcodes {
+        &self.opcode
+    }
+}
+
+//---------------------
+
+pub struct EOR {
+    opcode: Opcodes,
+    rd: u8,
+    rr: u8
+}
+
+impl Instruction for EOR {
+    fn pretty_print(&self) {
+        println!("EOR\tr{}, r{}", self.rd, self.rr)
+    }
+
+    fn get_opcode(&self) -> &Opcodes {
+        &self.opcode
     }
 }
