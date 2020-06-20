@@ -93,10 +93,19 @@ fn decode_jmp(opcode_info: &Opcodeinfo) -> JMP {
 }
 
 fn decode_eor(opcode_info: &Opcodeinfo) -> EOR {
+    let mask = 0b0000000111110000u16;
+    let rd = (mask & opcode_info.words[0])>>4;
+
+    let mask = 0b0000001000000000u16;
+    let rr_upper_bit = (mask & opcode_info.words[0])>>5;
+
+    let mask = 0b0000000000001111u16;
+    let rr_lower_bits = (mask & opcode_info.words[0]);
+
     EOR {
         opcode: Opcodes::EOR,
-        rd: 255,
-        rr: 255,
+        rd: rd as u8,
+        rr: (rr_upper_bit | rr_lower_bits) as u8,
     }
 }
 
@@ -138,5 +147,15 @@ impl Instruction for EOR {
 
     fn get_opcode(&self) -> &Opcodes {
         &self.opcode
+    }
+}
+
+
+// Tests
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn EOR() {
+
     }
 }
