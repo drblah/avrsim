@@ -180,24 +180,5 @@ mod tests {
             assert_eq!(decoded.rd, expected.rd);
             assert_eq!(decoded.rr, expected.rr)
         }
-
-        /*
-        for msb in 0x240..0x27F {
-        for lsb in 0x00..0x0F {
-            let opcode = (msb * 0x10) + lsb;
-
-            let test_data = Opcodeinfo{
-                opcode: Opcodes::EOR,
-                is_dword: false,
-                words: vec![opcode]
-            };
-
-            let decoded = decode_eor(&test_data);
-            assert_eq!(decoded.rd, (msb % 0x10) as u8 , "Testing EOR decode for opcode {:#X} built from {:#X} and {:#X}", opcode, msb, lsb);
-            assert_eq!(decoded.rr, lsb as u8, "Testing EOR decode for opcode {:#X} built from {:#X} and {:#X}", opcode, msb, lsb);
-
-        }
-        */
-
     }
 }
