@@ -3,7 +3,8 @@ use crate::avrcore::*;
 #[derive(Debug)]
 pub enum Opcodes {
     JMP,
-    EOR
+    EOR,
+    OUT
 }
 
 #[derive(Debug)]
@@ -53,6 +54,16 @@ fn match_opcode(raw_opcode: u16) -> Result<Opcodeinfo, String> {
             }
         )
     }
+    // OUT
+    else if bitpat!(1 0 1 1 1 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
+        Ok(
+            Opcodeinfo{
+                opcode: Opcodes::OUT,
+                is_dword: false,
+                words: Vec::new()
+            }
+        )
+    }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
@@ -67,6 +78,9 @@ fn decode(opcode_info: &Opcodeinfo) -> Box<dyn Instruction> {
         },
         Opcodes::EOR => {
             Box::new( decode_eor(opcode_info) )
+        },
+        Opcodes::OUT => {
+            Box::new(decode_out(opcode_info))
         }
     }
 }
@@ -109,6 +123,24 @@ fn decode_eor(opcode_info: &Opcodeinfo) -> EOR {
     }
 }
 
+fn decode_out(opcode_info: &Opcodeinfo) -> OUT {
+    let mask = 0b11000000000u16;
+    let aa_upper = (mask & opcode_info.words[0])>>5;
+
+    let mask = 0b1111u16;
+    let aa_lower = mask & opcode_info.words[0];
+
+    let mask = 0b111110000u16;
+    let rr = (mask & opcode_info.words[0])>>4;
+
+    OUT{
+        opcode: Opcodes::OUT,
+        a: (aa_upper | aa_lower) as u8,
+        rr: rr as u8
+    }
+}
+
+
 // Instruction definitions
 
 pub trait Instruction {
@@ -150,6 +182,21 @@ impl Instruction for EOR {
     }
 }
 
+//---------------------
+
+pub struct OUT {
+    opcode: Opcodes,
+    rr: u8,
+    a: u8
+}
+
+impl Instruction for OUT {
+    fn pretty_print(&self) {
+        println!("OUT\t{}, R{}", self.a, self.rr)
+    }
+
+    fn get_opcode(&self) -> &Opcodes{&self.opcode}
+}
 
 // Tests
 #[cfg(test)]
