@@ -9,8 +9,9 @@ pub enum Opcodes {
     CALL,
     PUSH,
     RCALL,
-    IN
+    IN,
 }
+
 
 #[derive(Debug)]
 pub struct Opcodeinfo {
@@ -20,138 +21,100 @@ pub struct Opcodeinfo {
 }
 
 pub fn disassm_next(core: &mut Avrcore) -> Box<dyn Instruction> {
-    let raw_opcode = core.get_next();
-
-    let mut opcode_info = match_opcode(raw_opcode).unwrap();
-
-    // If we are dealing with a double word instructio, make sure to read both words
-    if opcode_info.is_dword {
-        opcode_info.words.push(raw_opcode);
-        opcode_info.words.push(core.get_next());
-    } else {
-        opcode_info.words.push(raw_opcode);
-    }
-
-    //println!("Going to decode: {:b} {:b}", opcode_info.words[0], opcode_info.words[1]);
-    let decoded = decode(&opcode_info);
+    let decoded = match_and_decode(core).unwrap();
 
     decoded
 }
 
-fn match_opcode(raw_opcode: u16) -> Result<Opcodeinfo, String> {
+fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> {
+    let raw_opcode = core.get_next();
     // JMP
     if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 0 _)(raw_opcode) {
-        Ok(
-            Opcodeinfo{
-                opcode: Opcodes::JMP,
-                is_dword: true,
-                words: Vec::new()
-            }
-        )
+        let oi = Opcodeinfo {
+            opcode: Opcodes::JMP,
+            is_dword: true,
+            words: vec![raw_opcode, core.get_next()]
+        };
+
+        Ok(Box::new( decode_jmp(&oi)))
     }
     // EOR
     else if bitpat!(0 0 1 0 0 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
-        Ok(
-            Opcodeinfo{
+        let oi = Opcodeinfo {
                 opcode: Opcodes::EOR,
                 is_dword: false,
-                words: Vec::new()
-            }
-        )
+                words: vec![raw_opcode]
+            };
+
+        Ok(Box::new(decode_eor(&oi)))
     }
     // OUT
     else if bitpat!(1 0 1 1 1 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(
-            Opcodeinfo{
+        let oi = Opcodeinfo {
                 opcode: Opcodes::OUT,
                 is_dword: false,
-                words: Vec::new()
-            }
-        )
+                words: vec![raw_opcode]
+            };
+
+        Ok(Box::new(decode_out(&oi)))
+
     }
     // LDI
     else if bitpat!(1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(
-            Opcodeinfo{
+        let oi = Opcodeinfo {
                 opcode: Opcodes::LDI,
                 is_dword: false,
-                words: Vec::new()
-            }
-        )
+                words: vec![raw_opcode]
+            };
+        
+        Ok(Box::new(decode_ldi(&oi)))
     }
     // CALL
     else if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 1 _)(raw_opcode){
-        Ok(
-            Opcodeinfo{
+        let oi = Opcodeinfo {
                 opcode: Opcodes::CALL,
                 is_dword: true,
-                words: Vec::new()
-            }
-        )
+                words: vec![raw_opcode, core.get_next()]
+            };
+        
+        Ok(Box::new(decode_call(&oi)))
+        
     }
     // PUSH
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 1 1 1)(raw_opcode){
-        Ok(
-            Opcodeinfo{
+        let oi = Opcodeinfo{
                 opcode: Opcodes::PUSH,
                 is_dword: false,
-                words: Vec::new()
-            }
-        )
+                words: vec![raw_opcode]
+            };
+
+        Ok(Box::new(decode_push(&oi)))
+
     }
     // RCALL
     else if bitpat!(1 1 0 1 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(
-            Opcodeinfo{
+        let oi = Opcodeinfo {
                 opcode: Opcodes::RCALL,
                 is_dword: false,
-                words: Vec::new()
-            }
-        )
+                words: vec![raw_opcode]
+            };
+
+        Ok(Box::new(decode_rcall(&oi)))
     }
     // IN
     else if bitpat!(1 0 1 1 0 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(
-            Opcodeinfo{
+        let oi = Opcodeinfo {
                 opcode: Opcodes::IN,
                 is_dword: false,
-                words: Vec::new()
-            }
-        )
+                words: vec![raw_opcode]
+            };
+
+        Ok(Box::new(decode_in(&oi)))
     }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
         //println!("{:x} - unimplemented opcode", raw_opcode)
-    }
-}
-
-fn decode(opcode_info: &Opcodeinfo) -> Box<dyn Instruction> {
-    match opcode_info.opcode {
-        Opcodes::JMP => {
-            Box::new( decode_jmp(opcode_info) )
-        },
-        Opcodes::EOR => {
-            Box::new( decode_eor(opcode_info) )
-        },
-        Opcodes::OUT => {
-            Box::new(decode_out(opcode_info))
-        },
-        Opcodes::LDI => {
-            Box::new(decode_ldi(opcode_info))
-        },
-        Opcodes::CALL => {
-            Box::new(decode_call(opcode_info))
-        },
-        Opcodes::PUSH => {
-            Box::new(decode_push(opcode_info))
-        },
-        Opcodes::RCALL => {
-            Box::new(decode_rcall(opcode_info))
-        }
-        Opcodes::IN => {
-            Box::new(decode_in(opcode_info))
-        }
     }
 }
 
@@ -221,7 +184,7 @@ fn decode_ldi(opcode_info: &Opcodeinfo) -> LDI {
 
     LDI{
         opcode: Opcodes::LDI,
-        rd: rd as u8,
+        rd: (16+rd) as u8,
         k: (k_upper | k_lower) as u8
     }
 }
