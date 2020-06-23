@@ -186,15 +186,18 @@ fn decode_ldi(opcode_info: &Opcodeinfo) -> LDI {
 
 fn decode_call(opcode_info: &Opcodeinfo) -> CALL {
     // Get top 5 bits of jmp address by masking and shift 7 time to set them in the correct place.
-    let mask = 0b0000000111110000u16;
-    let top_5_bits = (mask & opcode_info.words[0])<<7;
+    let mask = 0b111110000u16;
+    let top_5_bits = (mask & opcode_info.words[0])>>3;
 
     // Get the 6th top bit
-    let mask = 0b0000000000000001u16;
-    let top_6_bit = (mask & opcode_info.words[0])<<10;
+    let mask = 0b1u16;
+    let top_6_bit = mask & opcode_info.words[0];
 
     // Assemble the final address
-    let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_info.words[1] as u32);
+    // TODO find out why we must bitshift by one here?
+    let jmp_addr = (((top_5_bits | top_6_bit) as u32)<<16 | opcode_info.words[1] as u32)<<1;
+
+    println!("CALL words: {:x}, {:x}", opcode_info.words[0], opcode_info.words[1]);
 
     CALL{
         opcode: Opcodes::CALL,
@@ -218,7 +221,7 @@ pub struct JMP {
 
 impl Instruction for JMP {
     fn pretty_print(&self) {
-        println!("JMP\t{:X}", self.address)
+        println!("JMP\t{:x}", self.address)
     }
 
     fn get_opcode(&self) -> &Opcodes {
@@ -285,7 +288,7 @@ pub struct CALL {
 
 impl Instruction for CALL {
     fn pretty_print(&self) {
-        println!("CALL\t{}", self.k)
+        println!("CALL\t{:x}", self.k)
     }
 
     fn get_opcode(&self) -> &Opcodes{&self.opcode}
