@@ -1,5 +1,4 @@
 mod avrcore;
-use crate::avrcore::*;
 mod hexreader;
 mod disassembler;
 #[macro_use] extern crate bitpat;
@@ -23,9 +22,12 @@ fn main() {
 
     avrcore::print_core(&core);
 
-    for _ in 0..30 {
+    for _ in 0..188 {
+        print!("{:x} ", core.pc);
+
         let instruction = disassembler::disassm_next(&mut core);
 
+        
         instruction.pretty_print();
     }
 

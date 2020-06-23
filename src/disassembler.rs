@@ -4,7 +4,9 @@ use crate::avrcore::*;
 pub enum Opcodes {
     JMP,
     EOR,
-    OUT
+    OUT,
+    LDI,
+    CALL
 }
 
 #[derive(Debug)]
@@ -64,6 +66,26 @@ fn match_opcode(raw_opcode: u16) -> Result<Opcodeinfo, String> {
             }
         )
     }
+    // LDI
+    else if bitpat!(1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
+        Ok(
+            Opcodeinfo{
+                opcode: Opcodes::LDI,
+                is_dword: false,
+                words: Vec::new()
+            }
+        )
+    }
+    // CALL
+    else if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 1 _)(raw_opcode){
+        Ok(
+            Opcodeinfo{
+                opcode: Opcodes::CALL,
+                is_dword: true,
+                words: Vec::new()
+            }
+        )
+    }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
@@ -81,6 +103,12 @@ fn decode(opcode_info: &Opcodeinfo) -> Box<dyn Instruction> {
         },
         Opcodes::OUT => {
             Box::new(decode_out(opcode_info))
+        },
+        Opcodes::LDI => {
+            Box::new(decode_ldi(opcode_info))
+        },
+        Opcodes::CALL => {
+            Box::new(decode_call(opcode_info))
         }
     }
 }
@@ -99,7 +127,6 @@ fn decode_jmp(opcode_info: &Opcodeinfo) -> JMP {
     // TODO: Find out why it is necessary to bit shift by one?
     let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_info.words[1] as u32)<<1;
 
-    //println!("jmp address {:x} {:b}", jmp_addr, jmp_addr)
     JMP{
         opcode: Opcodes::JMP,
         address: jmp_addr
@@ -137,6 +164,41 @@ fn decode_out(opcode_info: &Opcodeinfo) -> OUT {
         opcode: Opcodes::OUT,
         a: (aa_upper | aa_lower) as u8,
         rr: rr as u8
+    }
+}
+
+fn decode_ldi(opcode_info: &Opcodeinfo) -> LDI {
+    let mask = 0b111100000000u16;
+    let k_upper = (mask & opcode_info.words[0])>>4;
+
+    let mask = 0b1111u16;
+    let k_lower = mask & opcode_info.words[0];
+
+    let mask = 0b11110000u16;
+    let rd = (mask & opcode_info.words[0])>>4;
+
+    LDI{
+        opcode: Opcodes::LDI,
+        rd: rd as u8,
+        k: (k_upper | k_lower) as u8
+    }
+}
+
+fn decode_call(opcode_info: &Opcodeinfo) -> CALL {
+    // Get top 5 bits of jmp address by masking and shift 7 time to set them in the correct place.
+    let mask = 0b0000000111110000u16;
+    let top_5_bits = (mask & opcode_info.words[0])<<7;
+
+    // Get the 6th top bit
+    let mask = 0b0000000000000001u16;
+    let top_6_bit = (mask & opcode_info.words[0])<<10;
+
+    // Assemble the final address
+    let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_info.words[1] as u32);
+
+    CALL{
+        opcode: Opcodes::CALL,
+        k: jmp_addr
     }
 }
 
@@ -193,6 +255,37 @@ pub struct OUT {
 impl Instruction for OUT {
     fn pretty_print(&self) {
         println!("OUT\t{}, R{}", self.a, self.rr)
+    }
+
+    fn get_opcode(&self) -> &Opcodes{&self.opcode}
+}
+
+//---------------------
+
+pub struct LDI {
+    opcode: Opcodes,
+    rd: u8,
+    k: u8
+}
+
+impl Instruction for LDI {
+    fn pretty_print(&self) {
+        println!("LDI\tR{}, {}", self.rd, self.k)
+    }
+
+    fn get_opcode(&self) -> &Opcodes{&self.opcode}
+}
+
+//---------------------
+
+pub struct CALL {
+    opcode: Opcodes,
+    k: u32
+}
+
+impl Instruction for CALL {
+    fn pretty_print(&self) {
+        println!("CALL\t{}", self.k)
     }
 
     fn get_opcode(&self) -> &Opcodes{&self.opcode}
