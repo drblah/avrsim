@@ -6,7 +6,10 @@ pub enum Opcodes {
     EOR,
     OUT,
     LDI,
-    CALL
+    CALL,
+    PUSH,
+    RCALL,
+    IN
 }
 
 #[derive(Debug)]
@@ -86,6 +89,36 @@ fn match_opcode(raw_opcode: u16) -> Result<Opcodeinfo, String> {
             }
         )
     }
+    // PUSH
+    else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 1 1 1)(raw_opcode){
+        Ok(
+            Opcodeinfo{
+                opcode: Opcodes::PUSH,
+                is_dword: false,
+                words: Vec::new()
+            }
+        )
+    }
+    // RCALL
+    else if bitpat!(1 1 0 1 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
+        Ok(
+            Opcodeinfo{
+                opcode: Opcodes::RCALL,
+                is_dword: false,
+                words: Vec::new()
+            }
+        )
+    }
+    // IN
+    else if bitpat!(1 0 1 1 0 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
+        Ok(
+            Opcodeinfo{
+                opcode: Opcodes::IN,
+                is_dword: false,
+                words: Vec::new()
+            }
+        )
+    }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
@@ -109,6 +142,15 @@ fn decode(opcode_info: &Opcodeinfo) -> Box<dyn Instruction> {
         },
         Opcodes::CALL => {
             Box::new(decode_call(opcode_info))
+        },
+        Opcodes::PUSH => {
+            Box::new(decode_push(opcode_info))
+        },
+        Opcodes::RCALL => {
+            Box::new(decode_rcall(opcode_info))
+        }
+        Opcodes::IN => {
+            Box::new(decode_in(opcode_info))
         }
     }
 }
@@ -185,7 +227,7 @@ fn decode_ldi(opcode_info: &Opcodeinfo) -> LDI {
 }
 
 fn decode_call(opcode_info: &Opcodeinfo) -> CALL {
-    // Get top 5 bits of jmp address by masking and shift 7 time to set them in the correct place.
+    // Get top 5 bits of call address by masking and shift 7 time to set them in the correct place.
     let mask = 0b111110000u16;
     let top_5_bits = (mask & opcode_info.words[0])>>3;
 
@@ -197,14 +239,49 @@ fn decode_call(opcode_info: &Opcodeinfo) -> CALL {
     // TODO find out why we must bitshift by one here?
     let jmp_addr = (((top_5_bits | top_6_bit) as u32)<<16 | opcode_info.words[1] as u32)<<1;
 
-    println!("CALL words: {:x}, {:x}", opcode_info.words[0], opcode_info.words[1]);
-
     CALL{
         opcode: Opcodes::CALL,
         k: jmp_addr
     }
 }
 
+
+fn decode_push(opcode_info: &Opcodeinfo) -> PUSH {
+    let mask = 0b111110000u16;
+    let rr = mask & opcode_info.words[0];
+
+    PUSH{
+        opcode: Opcodes::PUSH,
+        rr: (rr>>4) as u8
+    }
+}
+
+fn decode_rcall(opcode_info: &Opcodeinfo) -> RCALL {
+    let mask = 0b111111111111u16;
+    let k = mask & opcode_info.words[0];
+
+    RCALL{
+        opcode: Opcodes::RCALL,
+        k: k
+    }
+}
+
+fn decode_in(opcode_info: &Opcodeinfo) -> IN {
+    let mask = 0b11000001111u16;
+    let upper_a = (mask & opcode_info.words[0]) >> 5;
+
+    let mask = 0b1111u16;
+    let lower_a = mask & opcode_info.words[0];
+
+    let mask = 0b111110000u16;
+    let rd = (mask & opcode_info.words[0])>>4;
+
+    IN{
+        opcode: Opcodes::IN,
+        rd: rd as u8,
+        a: (upper_a | lower_a) as u8
+    }
+}
 
 // Instruction definitions
 
@@ -289,6 +366,52 @@ pub struct CALL {
 impl Instruction for CALL {
     fn pretty_print(&self) {
         println!("CALL\t{:x}", self.k)
+    }
+
+    fn get_opcode(&self) -> &Opcodes{&self.opcode}
+}
+
+//---------------------
+
+pub struct PUSH {
+    opcode: Opcodes,
+    rr: u8
+}
+
+impl Instruction for PUSH {
+    fn pretty_print(&self) {
+        println!("PUSH\tR{}", self.rr)
+    }
+
+    fn get_opcode(&self) -> &Opcodes{&self.opcode}
+}
+
+//---------------------
+
+pub struct RCALL {
+    opcode: Opcodes,
+    k: u16
+}
+
+impl Instruction for RCALL {
+    fn pretty_print(&self) {
+        println!("RCALL\t{}", self.k)
+    }
+
+    fn get_opcode(&self) -> &Opcodes{&self.opcode}
+}
+
+//---------------------
+
+pub struct IN {
+    opcode: Opcodes,
+    rd: u8,
+    a: u8
+}
+
+impl Instruction for IN {
+    fn pretty_print(&self) {
+        println!("IN\tR{}, {}", self.rd, self.a)
     }
 
     fn get_opcode(&self) -> &Opcodes{&self.opcode}
