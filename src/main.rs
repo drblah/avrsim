@@ -6,7 +6,6 @@ mod disassembler;
 
 use disassembler::Opcodes;
 use crate::disassembler::Instruction;
-use enum_dispatch::enum_dispatch;
 
 fn main() {
 
