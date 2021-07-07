@@ -20,13 +20,6 @@ enum STDVariant {
     UncDisp // Unchanged, q: Displacement
 }
 
-#[derive(Debug)]
-pub struct Opcodeinfo {
-    opcode: Opcodes,
-    is_dword: bool,
-    words: Vec<u16>,
-}
-
 pub fn disassm_next(core: &mut Avrcore) -> Box<dyn Instruction> {
     let decoded = match_and_decode(core).unwrap();
 
@@ -38,93 +31,45 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
     
     // JMP
     if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 0 _)(raw_opcode) {
-        let oi = Opcodeinfo {
-            opcode: Opcodes::JMP,
-            is_dword: true,
-            words: vec![raw_opcode, core.get_next()]
-        };
-
-        Ok(Box::new( decode_jmp(&oi)))
+        Ok(Box::new( decode_jmp(vec![raw_opcode, core.get_next()])))
     }
     
     // EOR
     else if bitpat!(0 0 1 0 0 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
-        let oi = Opcodeinfo {
-                opcode: Opcodes::EOR,
-                is_dword: false,
-                words: vec![raw_opcode]
-            };
-
-        Ok(Box::new(decode_eor(&oi)))
+        Ok(Box::new(decode_eor(raw_opcode)))
     }
     
     // OUT
     else if bitpat!(1 0 1 1 1 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        let oi = Opcodeinfo {
-                opcode: Opcodes::OUT,
-                is_dword: false,
-                words: vec![raw_opcode]
-            };
-
-        Ok(Box::new(decode_out(&oi)))
+        Ok(Box::new(decode_out(raw_opcode)))
 
     }
     
     // LDI
     else if bitpat!(1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        let oi = Opcodeinfo {
-                opcode: Opcodes::LDI,
-                is_dword: false,
-                words: vec![raw_opcode]
-            };
-        
-        Ok(Box::new(decode_ldi(&oi)))
+        Ok(Box::new(decode_ldi(raw_opcode)))
     }
 
     // CALL
     else if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 1 _)(raw_opcode){
-        let oi = Opcodeinfo {
-                opcode: Opcodes::CALL,
-                is_dword: true,
-                words: vec![raw_opcode, core.get_next()]
-            };
-        
-        Ok(Box::new(decode_call(&oi)))
+        Ok(Box::new(decode_call(vec![raw_opcode, core.get_next()])))
         
     }
 
     // PUSH
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 1 1 1)(raw_opcode){
-        let oi = Opcodeinfo{
-                opcode: Opcodes::PUSH,
-                is_dword: false,
-                words: vec![raw_opcode]
-            };
-
-        Ok(Box::new(decode_push(&oi)))
+        Ok(Box::new(decode_push(raw_opcode)))
 
     }
 
     // RCALL
     else if bitpat!(1 1 0 1 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        let oi = Opcodeinfo {
-                opcode: Opcodes::RCALL,
-                is_dword: false,
-                words: vec![raw_opcode]
-            };
-
-        Ok(Box::new(decode_rcall(&oi)))
+        Ok(Box::new(decode_rcall(raw_opcode)))
     }
 
     // IN
     else if bitpat!(1 0 1 1 0 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        let oi = Opcodeinfo {
-                opcode: Opcodes::IN,
-                is_dword: false,
-                words: vec![raw_opcode]
-            };
-
-        Ok(Box::new(decode_in(&oi)))
+        Ok(Box::new(decode_in(raw_opcode)))
     }
 
     // STD Y Unchanged
@@ -151,13 +96,6 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
     // STD Y Unchanged, q: Displacement
     // TODO: IMPLEMENT ME
     else if bitpat!(1 0 _ 0 _ _ 1 _ _ _ _ _ 1 _ _ _)(raw_opcode){
-        let oi = Opcodeinfo {
-            opcode: Opcodes::STD,
-            is_dword: false,
-            words: vec![raw_opcode]
-
-        };
-
         //Ok(Box::new(decode_std(&oi, STDVariant::UncDisp)))
 
         let error_str = format!("STD Y Unchanged, q: Displacement: {:#x}", raw_opcode);
@@ -171,18 +109,18 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
 }
 
 
-fn decode_jmp(opcode_info: &Opcodeinfo) -> JMP {
+fn decode_jmp(opcode_words: Vec<u16>) -> JMP {
     // Get top 5 bits of jmp address by masking and shift 7 time to set them in the correct place.
     let mask = 0b0000000111110000u16;
-    let top_5_bits = (mask & opcode_info.words[0])<<7;
+    let top_5_bits = (mask & opcode_words[0])<<7;
 
     // Get the 6th top bit
     let mask = 0b0000000000000001u16;
-    let top_6_bit = (mask & opcode_info.words[0])<<10;
+    let top_6_bit = (mask & opcode_words[0])<<10;
 
     // Assemble the final address
     // TODO: Find out why it is necessary to bit shift by one?
-    let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_info.words[1] as u32)<<1;
+    let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_words[1] as u32)<<1;
 
     JMP{
         opcode: Opcodes::JMP,
@@ -190,15 +128,15 @@ fn decode_jmp(opcode_info: &Opcodeinfo) -> JMP {
     }
 }
 
-fn decode_eor(opcode_info: &Opcodeinfo) -> EOR {
+fn decode_eor(opcode_word: u16) -> EOR {
     let mask = 0b0000000111110000u16;
-    let rd = (mask & opcode_info.words[0])>>4;
+    let rd = (mask & opcode_word)>>4;
 
     let mask = 0b0000001000000000u16;
-    let rr_upper_bit = (mask & opcode_info.words[0])>>5;
+    let rr_upper_bit = (mask & opcode_word)>>5;
 
     let mask = 0b0000000000001111u16;
-    let rr_lower_bits = mask & opcode_info.words[0];
+    let rr_lower_bits = mask & opcode_word;
 
     EOR {
         opcode: Opcodes::EOR,
@@ -207,15 +145,15 @@ fn decode_eor(opcode_info: &Opcodeinfo) -> EOR {
     }
 }
 
-fn decode_out(opcode_info: &Opcodeinfo) -> OUT {
+fn decode_out(opcode_word: u16) -> OUT {
     let mask = 0b11000000000u16;
-    let aa_upper = (mask & opcode_info.words[0])>>5;
+    let aa_upper = (mask & opcode_word)>>5;
 
     let mask = 0b1111u16;
-    let aa_lower = mask & opcode_info.words[0];
+    let aa_lower = mask & opcode_word;
 
     let mask = 0b111110000u16;
-    let rr = (mask & opcode_info.words[0])>>4;
+    let rr = (mask & opcode_word)>>4;
 
     OUT{
         opcode: Opcodes::OUT,
@@ -224,15 +162,15 @@ fn decode_out(opcode_info: &Opcodeinfo) -> OUT {
     }
 }
 
-fn decode_ldi(opcode_info: &Opcodeinfo) -> LDI {
+fn decode_ldi(opcode_word: u16) -> LDI {
     let mask = 0b111100000000u16;
-    let k_upper = (mask & opcode_info.words[0])>>4;
+    let k_upper = (mask & opcode_word)>>4;
 
     let mask = 0b1111u16;
-    let k_lower = mask & opcode_info.words[0];
+    let k_lower = mask & opcode_word;
 
     let mask = 0b11110000u16;
-    let rd = (mask & opcode_info.words[0])>>4;
+    let rd = (mask & opcode_word)>>4;
 
     LDI{
         opcode: Opcodes::LDI,
@@ -241,18 +179,18 @@ fn decode_ldi(opcode_info: &Opcodeinfo) -> LDI {
     }
 }
 
-fn decode_call(opcode_info: &Opcodeinfo) -> CALL {
+fn decode_call(opcode_words: Vec<u16>) -> CALL {
     // Get top 5 bits of call address by masking and shift 7 time to set them in the correct place.
     let mask = 0b111110000u16;
-    let top_5_bits = (mask & opcode_info.words[0])>>3;
+    let top_5_bits = (mask & opcode_words[0])>>3;
 
     // Get the 6th top bit
     let mask = 0b1u16;
-    let top_6_bit = mask & opcode_info.words[0];
+    let top_6_bit = mask & opcode_words[0];
 
     // Assemble the final address
     // TODO find out why we must bitshift by one here?
-    let jmp_addr = (((top_5_bits | top_6_bit) as u32)<<16 | opcode_info.words[1] as u32)<<1;
+    let jmp_addr = (((top_5_bits | top_6_bit) as u32)<<16 | opcode_words[1] as u32)<<1;
 
     CALL{
         opcode: Opcodes::CALL,
@@ -261,9 +199,9 @@ fn decode_call(opcode_info: &Opcodeinfo) -> CALL {
 }
 
 
-fn decode_push(opcode_info: &Opcodeinfo) -> PUSH {
+fn decode_push(opcode_word: u16) -> PUSH {
     let mask = 0b111110000u16;
-    let rr = mask & opcode_info.words[0];
+    let rr = mask & opcode_word;
 
     PUSH{
         opcode: Opcodes::PUSH,
@@ -271,9 +209,9 @@ fn decode_push(opcode_info: &Opcodeinfo) -> PUSH {
     }
 }
 
-fn decode_rcall(opcode_info: &Opcodeinfo) -> RCALL {
+fn decode_rcall(opcode_word: u16) -> RCALL {
     let mask = 0b111111111111u16;
-    let k = mask & opcode_info.words[0];
+    let k = mask & opcode_word;
 
     RCALL{
         opcode: Opcodes::RCALL,
@@ -281,15 +219,15 @@ fn decode_rcall(opcode_info: &Opcodeinfo) -> RCALL {
     }
 }
 
-fn decode_in(opcode_info: &Opcodeinfo) -> IN {
+fn decode_in(opcode_word: u16) -> IN {
     let mask = 0b11000001111u16;
-    let upper_a = (mask & opcode_info.words[0]) >> 5;
+    let upper_a = (mask & opcode_word) >> 5;
 
     let mask = 0b1111u16;
-    let lower_a = mask & opcode_info.words[0];
+    let lower_a = mask & opcode_word;
 
     let mask = 0b111110000u16;
-    let rd = (mask & opcode_info.words[0])>>4;
+    let rd = (mask & opcode_word)>>4;
 
     IN{
         opcode: Opcodes::IN,
@@ -298,16 +236,6 @@ fn decode_in(opcode_info: &Opcodeinfo) -> IN {
     }
 }
 
-fn decode_std(opcode_info: &Opcodeinfo, variant: STDVariant) {
-    match variant {
-        STDVariant::UncDisp => {
-
-        },
-        _ => {
-            panic!("Reached unimplemented STD variant! {:?}", opcode_info)
-        }
-    }
-}
 // Instruction definitions
 
 pub trait Instruction {
