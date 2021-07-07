@@ -4,6 +4,10 @@ mod disassembler;
 #[macro_use] extern crate bitpat;
 
 
+use disassembler::Opcodes;
+use crate::disassembler::Instruction;
+use enum_dispatch::enum_dispatch;
+
 fn main() {
 
     let mut core = avrcore::Avrcore{
@@ -25,9 +29,8 @@ fn main() {
     for _ in 0..188 {
         print!("{:x} ", core.pc);
 
-        let instruction = disassembler::disassm_next(&mut core);
+        let instruction: Opcodes = disassembler::disassm_next(&mut core);
 
-        
         instruction.pretty_print();
     }
 

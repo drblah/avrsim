@@ -1,16 +1,18 @@
 use crate::avrcore::*;
+use enum_dispatch::enum_dispatch;
 
+#[enum_dispatch]
 #[derive(Debug)]
 pub enum Opcodes {
-    JMP,
-    EOR,
-    OUT,
-    LDI,
-    CALL,
-    PUSH,
-    RCALL,
-    IN,
-    STD,
+    JMP(JMPInstruction),
+    EOR(EORInstruction),
+    OUT(OUTInstruction),
+    LDI(LDIInstruction),
+    CALL(CALLInstruction),
+    PUSH(PUSHInstruction),
+    RCALL(RCALLInstruction),
+    IN(INInstruction),
+    //STD(STD_instruction),
 }
 
 enum STDVariant {
@@ -20,56 +22,56 @@ enum STDVariant {
     UncDisp // Unchanged, q: Displacement
 }
 
-pub fn disassm_next(core: &mut Avrcore) -> Box<dyn Instruction> {
+pub fn disassm_next(core: &mut Avrcore) -> Opcodes {
     let decoded = match_and_decode(core).unwrap();
 
     decoded
 }
 
-fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> {
+fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
     let raw_opcode = core.get_next();
     
     // JMP
     if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 0 _)(raw_opcode) {
-        Ok(Box::new( decode_jmp(vec![raw_opcode, core.get_next()])))
+        Ok( Opcodes::JMP(decode_jmp(vec![raw_opcode, core.get_next()])))
     }
-    
+
     // EOR
     else if bitpat!(0 0 1 0 0 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
-        Ok(Box::new(decode_eor(raw_opcode)))
+        Ok( Opcodes::EOR(decode_eor(raw_opcode)))
     }
-    
+
     // OUT
     else if bitpat!(1 0 1 1 1 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(Box::new(decode_out(raw_opcode)))
+        Ok( Opcodes::OUT(decode_out(raw_opcode)))
 
     }
     
     // LDI
     else if bitpat!(1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(Box::new(decode_ldi(raw_opcode)))
+        Ok( Opcodes::LDI(decode_ldi(raw_opcode)))
     }
 
     // CALL
     else if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 1 _)(raw_opcode){
-        Ok(Box::new(decode_call(vec![raw_opcode, core.get_next()])))
+        Ok( Opcodes::CALL(decode_call(vec![raw_opcode, core.get_next()])))
         
     }
 
     // PUSH
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 1 1 1)(raw_opcode){
-        Ok(Box::new(decode_push(raw_opcode)))
+        Ok( Opcodes::PUSH(decode_push(raw_opcode)))
 
     }
 
     // RCALL
     else if bitpat!(1 1 0 1 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(Box::new(decode_rcall(raw_opcode)))
+        Ok( Opcodes::RCALL(decode_rcall(raw_opcode)))
     }
 
     // IN
     else if bitpat!(1 0 1 1 0 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
-        Ok(Box::new(decode_in(raw_opcode)))
+        Ok( Opcodes::IN(decode_in(raw_opcode)))
     }
 
     // STD Y Unchanged
@@ -101,6 +103,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
         let error_str = format!("STD Y Unchanged, q: Displacement: {:#x}", raw_opcode);
         Err(error_str)
     }
+
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
@@ -109,7 +112,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
 }
 
 
-fn decode_jmp(opcode_words: Vec<u16>) -> JMP {
+fn decode_jmp(opcode_words: Vec<u16>) -> JMPInstruction {
     // Get top 5 bits of jmp address by masking and shift 7 time to set them in the correct place.
     let mask = 0b0000000111110000u16;
     let top_5_bits = (mask & opcode_words[0])<<7;
@@ -122,13 +125,12 @@ fn decode_jmp(opcode_words: Vec<u16>) -> JMP {
     // TODO: Find out why it is necessary to bit shift by one?
     let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_words[1] as u32)<<1;
 
-    JMP{
-        opcode: Opcodes::JMP,
+    JMPInstruction {
         address: jmp_addr
     }
 }
 
-fn decode_eor(opcode_word: u16) -> EOR {
+fn decode_eor(opcode_word: u16) -> EORInstruction {
     let mask = 0b0000000111110000u16;
     let rd = (mask & opcode_word)>>4;
 
@@ -138,14 +140,13 @@ fn decode_eor(opcode_word: u16) -> EOR {
     let mask = 0b0000000000001111u16;
     let rr_lower_bits = mask & opcode_word;
 
-    EOR {
-        opcode: Opcodes::EOR,
+    EORInstruction {
         rd: rd as u8,
         rr: (rr_upper_bit | rr_lower_bits) as u8,
     }
 }
 
-fn decode_out(opcode_word: u16) -> OUT {
+fn decode_out(opcode_word: u16) -> OUTInstruction {
     let mask = 0b11000000000u16;
     let aa_upper = (mask & opcode_word)>>5;
 
@@ -155,14 +156,13 @@ fn decode_out(opcode_word: u16) -> OUT {
     let mask = 0b111110000u16;
     let rr = (mask & opcode_word)>>4;
 
-    OUT{
-        opcode: Opcodes::OUT,
+    OUTInstruction {
         a: (aa_upper | aa_lower) as u8,
         rr: rr as u8
     }
 }
 
-fn decode_ldi(opcode_word: u16) -> LDI {
+fn decode_ldi(opcode_word: u16) -> LDIInstruction {
     let mask = 0b111100000000u16;
     let k_upper = (mask & opcode_word)>>4;
 
@@ -172,14 +172,13 @@ fn decode_ldi(opcode_word: u16) -> LDI {
     let mask = 0b11110000u16;
     let rd = (mask & opcode_word)>>4;
 
-    LDI{
-        opcode: Opcodes::LDI,
+    LDIInstruction {
         rd: (16+rd) as u8,
         k: (k_upper | k_lower) as u8
     }
 }
 
-fn decode_call(opcode_words: Vec<u16>) -> CALL {
+fn decode_call(opcode_words: Vec<u16>) -> CALLInstruction {
     // Get top 5 bits of call address by masking and shift 7 time to set them in the correct place.
     let mask = 0b111110000u16;
     let top_5_bits = (mask & opcode_words[0])>>3;
@@ -192,34 +191,31 @@ fn decode_call(opcode_words: Vec<u16>) -> CALL {
     // TODO find out why we must bitshift by one here?
     let jmp_addr = (((top_5_bits | top_6_bit) as u32)<<16 | opcode_words[1] as u32)<<1;
 
-    CALL{
-        opcode: Opcodes::CALL,
+    CALLInstruction {
         k: jmp_addr
     }
 }
 
 
-fn decode_push(opcode_word: u16) -> PUSH {
+fn decode_push(opcode_word: u16) -> PUSHInstruction {
     let mask = 0b111110000u16;
     let rr = mask & opcode_word;
 
-    PUSH{
-        opcode: Opcodes::PUSH,
+    PUSHInstruction {
         rr: (rr>>4) as u8
     }
 }
 
-fn decode_rcall(opcode_word: u16) -> RCALL {
+fn decode_rcall(opcode_word: u16) -> RCALLInstruction {
     let mask = 0b111111111111u16;
     let k = mask & opcode_word;
 
-    RCALL{
-        opcode: Opcodes::RCALL,
+    RCALLInstruction {
         k: k
     }
 }
 
-fn decode_in(opcode_word: u16) -> IN {
+fn decode_in(opcode_word: u16) -> INInstruction {
     let mask = 0b11000001111u16;
     let upper_a = (mask & opcode_word) >> 5;
 
@@ -229,8 +225,7 @@ fn decode_in(opcode_word: u16) -> IN {
     let mask = 0b111110000u16;
     let rd = (mask & opcode_word)>>4;
 
-    IN{
-        opcode: Opcodes::IN,
+    INInstruction {
         rd: rd as u8,
         a: (upper_a | lower_a) as u8
     }
@@ -238,136 +233,109 @@ fn decode_in(opcode_word: u16) -> IN {
 
 // Instruction definitions
 
+#[enum_dispatch(Opcodes)]
 pub trait Instruction {
     fn pretty_print(&self);
-    fn get_opcode(&self) -> &Opcodes;
 }
 
 //---------------------
-pub struct JMP {
-    opcode: Opcodes,
-    address: u32,
+#[derive(Debug)]
+pub struct JMPInstruction {
+    address: u32
 }
 
-impl Instruction for JMP {
+impl Instruction for JMPInstruction {
     fn pretty_print(&self) {
         println!("JMP\t{:#04x}", self.address)
     }
-
-    fn get_opcode(&self) -> &Opcodes {
-        &self.opcode
-    }
 }
 
 //---------------------
-
-pub struct EOR {
-    opcode: Opcodes,
+#[derive(Debug)]
+pub struct EORInstruction {
     rd: u8,
     rr: u8
 }
 
-impl Instruction for EOR {
+impl Instruction for EORInstruction {
     fn pretty_print(&self) {
         println!("EOR\tr{}, r{}", self.rd, self.rr)
-    }
-
-    fn get_opcode(&self) -> &Opcodes {
-        &self.opcode
     }
 }
 
 //---------------------
-
-pub struct OUT {
-    opcode: Opcodes,
+#[derive(Debug)]
+pub struct OUTInstruction {
     rr: u8,
     a: u8
 }
 
-impl Instruction for OUT {
+impl Instruction for OUTInstruction {
     fn pretty_print(&self) {
         println!("OUT\t{:#04x}, R{}", self.a, self.rr)
     }
-
-    fn get_opcode(&self) -> &Opcodes{&self.opcode}
 }
 
 //---------------------
-
-pub struct LDI {
-    opcode: Opcodes,
+#[derive(Debug)]
+pub struct LDIInstruction {
     rd: u8,
     k: u8
 }
 
-impl Instruction for LDI {
+impl Instruction for LDIInstruction {
     fn pretty_print(&self) {
         println!("LDI\tR{}, {:#04x}", self.rd, self.k)
     }
-
-    fn get_opcode(&self) -> &Opcodes{&self.opcode}
 }
 
 //---------------------
-
-pub struct CALL {
-    opcode: Opcodes,
+#[derive(Debug)]
+pub struct CALLInstruction {
     k: u32
 }
 
-impl Instruction for CALL {
+impl Instruction for CALLInstruction {
     fn pretty_print(&self) {
         println!("CALL\t{:#04x}", self.k)
     }
-
-    fn get_opcode(&self) -> &Opcodes{&self.opcode}
 }
 
 //---------------------
-
-pub struct PUSH {
-    opcode: Opcodes,
+#[derive(Debug)]
+pub struct PUSHInstruction {
     rr: u8
 }
 
-impl Instruction for PUSH {
+impl Instruction for PUSHInstruction {
     fn pretty_print(&self) {
         println!("PUSH\tR{}", self.rr)
     }
-
-    fn get_opcode(&self) -> &Opcodes{&self.opcode}
 }
 
 //---------------------
-
-pub struct RCALL {
-    opcode: Opcodes,
+#[derive(Debug)]
+pub struct RCALLInstruction {
     k: u16
 }
 
-impl Instruction for RCALL {
+impl Instruction for RCALLInstruction {
     fn pretty_print(&self) {
         println!("RCALL\t{}", self.k)
     }
-
-    fn get_opcode(&self) -> &Opcodes{&self.opcode}
 }
 
 //---------------------
-
-pub struct IN {
-    opcode: Opcodes,
+#[derive(Debug)]
+pub struct INInstruction {
     rd: u8,
     a: u8
 }
 
-impl Instruction for IN {
+impl Instruction for INInstruction {
     fn pretty_print(&self) {
         println!("IN\tR{}, {}", self.rd, self.a)
     }
-
-    fn get_opcode(&self) -> &Opcodes{&self.opcode}
 }
 
 // Tests
