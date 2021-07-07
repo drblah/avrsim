@@ -10,8 +10,15 @@ pub enum Opcodes {
     PUSH,
     RCALL,
     IN,
+    STD,
 }
 
+enum STDVariant {
+    Unc, // Unchanged
+    PostInc, // Post incremented
+    PreDec, // Pre decremented
+    UncDisp // Unchanged, q: Displacement
+}
 
 #[derive(Debug)]
 pub struct Opcodeinfo {
@@ -28,6 +35,7 @@ pub fn disassm_next(core: &mut Avrcore) -> Box<dyn Instruction> {
 
 fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> {
     let raw_opcode = core.get_next();
+    
     // JMP
     if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 0 _)(raw_opcode) {
         let oi = Opcodeinfo {
@@ -38,6 +46,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
 
         Ok(Box::new( decode_jmp(&oi)))
     }
+    
     // EOR
     else if bitpat!(0 0 1 0 0 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
         let oi = Opcodeinfo {
@@ -48,6 +57,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
 
         Ok(Box::new(decode_eor(&oi)))
     }
+    
     // OUT
     else if bitpat!(1 0 1 1 1 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
         let oi = Opcodeinfo {
@@ -59,6 +69,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
         Ok(Box::new(decode_out(&oi)))
 
     }
+    
     // LDI
     else if bitpat!(1 1 1 0 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
         let oi = Opcodeinfo {
@@ -69,6 +80,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
         
         Ok(Box::new(decode_ldi(&oi)))
     }
+
     // CALL
     else if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 1 _)(raw_opcode){
         let oi = Opcodeinfo {
@@ -80,6 +92,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
         Ok(Box::new(decode_call(&oi)))
         
     }
+
     // PUSH
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 1 1 1)(raw_opcode){
         let oi = Opcodeinfo{
@@ -91,6 +104,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
         Ok(Box::new(decode_push(&oi)))
 
     }
+
     // RCALL
     else if bitpat!(1 1 0 1 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
         let oi = Opcodeinfo {
@@ -101,6 +115,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
 
         Ok(Box::new(decode_rcall(&oi)))
     }
+
     // IN
     else if bitpat!(1 0 1 1 0 _ _ _ _ _ _ _ _ _ _ _)(raw_opcode){
         let oi = Opcodeinfo {
@@ -110,6 +125,43 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Box<dyn Instruction>, String> 
             };
 
         Ok(Box::new(decode_in(&oi)))
+    }
+
+    // STD Y Unchanged
+    // TODO: IMPLEMENT ME
+    else if bitpat!(1 0 0 0 0 0 1 _ _ _ _ _ 1 0 0 0)(raw_opcode){
+        let error_str = format!("STD Y unchanged UNIMPLEMENTED: {:#x}", raw_opcode);
+        Err(error_str)
+    }
+    
+    // STD Y Post incremented
+    // TODO: IMPLEMENT ME
+    else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 0 0 1)(raw_opcode){
+        let error_str = format!("STD Y Post incremented UNIMPLEMENTED: {:#x}", raw_opcode);
+        Err(error_str)
+    }
+
+    // STD Y Pre decremented
+    // TODO: IMPLEMENT ME
+    else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 0 1 0)(raw_opcode){
+        let error_str = format!("STD Y Pre decremented UNIMPLEMENTED: {:#x}", raw_opcode);
+        Err(error_str)
+    }
+
+    // STD Y Unchanged, q: Displacement
+    // TODO: IMPLEMENT ME
+    else if bitpat!(1 0 _ 0 _ _ 1 _ _ _ _ _ 1 _ _ _)(raw_opcode){
+        let oi = Opcodeinfo {
+            opcode: Opcodes::STD,
+            is_dword: false,
+            words: vec![raw_opcode]
+
+        };
+
+        //Ok(Box::new(decode_std(&oi, STDVariant::UncDisp)))
+
+        let error_str = format!("STD Y Unchanged, q: Displacement: {:#x}", raw_opcode);
+        Err(error_str)
     }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
@@ -246,6 +298,16 @@ fn decode_in(opcode_info: &Opcodeinfo) -> IN {
     }
 }
 
+fn decode_std(opcode_info: &Opcodeinfo, variant: STDVariant) {
+    match variant {
+        STDVariant::UncDisp => {
+
+        },
+        _ => {
+            panic!("Reached unimplemented STD variant! {:?}", opcode_info)
+        }
+    }
+}
 // Instruction definitions
 
 pub trait Instruction {
@@ -261,7 +323,7 @@ pub struct JMP {
 
 impl Instruction for JMP {
     fn pretty_print(&self) {
-        println!("JMP\t{:x}", self.address)
+        println!("JMP\t{:#04x}", self.address)
     }
 
     fn get_opcode(&self) -> &Opcodes {
@@ -297,7 +359,7 @@ pub struct OUT {
 
 impl Instruction for OUT {
     fn pretty_print(&self) {
-        println!("OUT\t{}, R{}", self.a, self.rr)
+        println!("OUT\t{:#04x}, R{}", self.a, self.rr)
     }
 
     fn get_opcode(&self) -> &Opcodes{&self.opcode}
@@ -313,7 +375,7 @@ pub struct LDI {
 
 impl Instruction for LDI {
     fn pretty_print(&self) {
-        println!("LDI\tR{}, {}", self.rd, self.k)
+        println!("LDI\tR{}, {:#04x}", self.rd, self.k)
     }
 
     fn get_opcode(&self) -> &Opcodes{&self.opcode}
@@ -328,7 +390,7 @@ pub struct CALL {
 
 impl Instruction for CALL {
     fn pretty_print(&self) {
-        println!("CALL\t{:x}", self.k)
+        println!("CALL\t{:#04x}", self.k)
     }
 
     fn get_opcode(&self) -> &Opcodes{&self.opcode}

@@ -18,7 +18,7 @@ fn main() {
     };
 
 
-    hexreader::read_ihex("/home/drblah/rust/avrsim/testprogram.hex", &mut core);
+    hexreader::read_ihex("testprogram.hex", &mut core);
 
     avrcore::print_core(&core);
 
