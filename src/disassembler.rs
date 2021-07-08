@@ -18,7 +18,8 @@ pub enum Opcodes {
     ADD(ADDInstruction),
     ADC(ADCInstruction),
     POP(POPInstruction),
-    RET(RETInstruction)
+    RET(RETInstruction),
+    CLI(CLIInstruction)
     //STD(STD_instruction),
 }
 
@@ -139,6 +140,9 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
         Ok(Opcodes::RET(RETInstruction { }))
     }
 
+    else if bitpat!(1 0 0 1 0 1 0 0 1 1 1 1 1 0 0 0)(raw_opcode) {
+        Ok(Opcodes::CLI(CLIInstruction { }))
+    }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
@@ -570,6 +574,17 @@ pub struct RETInstruction {
 impl Instruction for RETInstruction {
     fn pretty_print(&self) {
         println!("RET")
+    }
+}
+
+//------------------
+#[derive(Debug)]
+pub struct CLIInstruction {
+}
+
+impl Instruction for CLIInstruction {
+    fn pretty_print(&self) {
+        println!("CLI")
     }
 }
 
