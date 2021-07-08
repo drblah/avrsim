@@ -121,7 +121,6 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
     }
 
     else if bitpat!(0 0 0 0 1 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
-        //panic!("TODO: implement ADD - Add without Carry")
         Ok(Opcodes::ADD(decode_add(raw_opcode)))
     }
 
@@ -318,6 +317,15 @@ fn decode_add(opcode_word: u16) -> ADDInstruction {
     // Extract Rd
     let mask = 0b111110000u16;
     let rd = (mask & opcode_word) >> 4;
+
+    // Sanity checks
+    // 0 ≤ d ≤ 31, 0 ≤ r ≤ 31
+    if rd > 31 {
+        panic!("Rd is out of range for ADD Rd,Rr. Value was: {}", rd)
+    }
+    if rr > 31 {
+        panic!("Rr is out of range for ADD Rd,Rr. Value was: {}", rr)
+    }
 
     ADDInstruction {
         rd: rd as u8,
