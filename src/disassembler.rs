@@ -12,7 +12,7 @@ pub enum Opcodes {
     PUSH(PUSHInstruction),
     RCALL(RCALLInstruction),
     IN(INInstruction),
-    STDUnCDisp(STDUnCDispInstruction),
+    STDy(STDyInstruction),
 
     LDDy(LDDyInstruction),
     ADD(ADDInstruction),
@@ -24,12 +24,6 @@ pub enum Opcodes {
     //STD(STD_instruction),
 }
 
-enum STDVariant {
-    Unc, // Unchanged
-    PostInc, // Post incremented
-    PreDec, // Pre decremented
-    UncDisp // Unchanged, q: Displacement
-}
 
 pub fn disassm_next(core: &mut Avrcore) -> Opcodes {
     let decoded = match_and_decode(core).unwrap();
@@ -106,7 +100,7 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
 
     // STD Y Unchanged, q: Displacement
     else if bitpat!(1 0 _ 0 _ _ 1 _ _ _ _ _ 1 _ _ _)(raw_opcode){
-        Ok(Opcodes::STDUnCDisp(decode_stdUnCDisp(raw_opcode)))
+        Ok(Opcodes::STDy(decode_stdy(raw_opcode)))
     }
 
     else if bitpat!(1 0 0 0 0 0 0 _ _ _ _ _ 1 0 0 0)(raw_opcode){
@@ -276,10 +270,10 @@ fn decode_in(opcode_word: u16) -> INInstruction {
     }
 }
 
-fn decode_stdUnCDisp(opcode_word: u16) -> STDUnCDispInstruction {
+fn decode_stdy(opcode_word: u16) -> STDyInstruction {
     // Extract q
     let mask = 0b10110000000111u16;
-    let masked = (mask & opcode_word);
+    let masked = mask & opcode_word;
 
     let q = (0b111 & masked) // Least significant bits
         | ((0b110000000000u16 & masked) >> 7) // Middle bits
@@ -298,7 +292,7 @@ fn decode_stdUnCDisp(opcode_word: u16) -> STDUnCDispInstruction {
         panic!("q is out of range for STD Y+q, Rr. Value was: {}. Aborting!", q)
     }
 
-    STDUnCDispInstruction {
+    STDyInstruction {
         rr: rr as u8,
         q: q as u8
     }
@@ -307,7 +301,7 @@ fn decode_stdUnCDisp(opcode_word: u16) -> STDUnCDispInstruction {
 fn decode_lddy(opcode_word: u16) -> LDDyInstruction {
     // Extract q
     let mask = 0b0010110000000111u16;
-    let masked = (mask & opcode_word);
+    let masked = mask & opcode_word;
 
     let q = (0b111 & masked) // Least significant bits
         | ((0b110000000000u16 & masked) >> 7) // Middle bits
@@ -335,7 +329,7 @@ fn decode_lddy(opcode_word: u16) -> LDDyInstruction {
 fn decode_add(opcode_word: u16) -> ADDInstruction {
     // Extract Rr
     let mask = 0b1000001111u16;
-    let masked = (mask & opcode_word);
+    let masked = mask & opcode_word;
 
     let rr = (0b1111 & masked) | ((0b1000000000 & masked) >> 5);
 
@@ -362,7 +356,7 @@ fn decode_add(opcode_word: u16) -> ADDInstruction {
 fn decode_adc(opcode_word: u16) -> ADCInstruction {
     // Extract Rr
     let mask = 0b1000001111u16;
-    let masked = (mask & opcode_word);
+    let masked = mask & opcode_word;
 
     let rr = (0b1111 & masked) | ((0b1000000000 & masked) >> 5);
 
@@ -388,7 +382,7 @@ fn decode_adc(opcode_word: u16) -> ADCInstruction {
 fn decode_pop(opcode_word: u16) -> POPInstruction {
     // Extract Rd
     let mask = 0b111110000u16;
-    let masked = (mask & opcode_word);
+    let masked = mask & opcode_word;
 
     let rd = masked >> 4;
 
@@ -536,12 +530,12 @@ impl Instruction for INInstruction {
 
 //--------------------
 #[derive(Debug)]
-pub struct STDUnCDispInstruction{
+pub struct STDyInstruction {
     rr: u8,
     q: u8
 }
 
-impl Instruction for STDUnCDispInstruction {
+impl Instruction for STDyInstruction {
     fn pretty_print(&self) {
         println!("STD Y+{}, r{}", self.q, self.rr)
     }
