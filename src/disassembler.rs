@@ -19,7 +19,8 @@ pub enum Opcodes {
     ADC(ADCInstruction),
     POP(POPInstruction),
     RET(RETInstruction),
-    CLI(CLIInstruction)
+    CLI(CLIInstruction),
+    RJMP(RJMPInstruction)
     //STD(STD_instruction),
 }
 
@@ -143,6 +144,11 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
     else if bitpat!(1 0 0 1 0 1 0 0 1 1 1 1 1 0 0 0)(raw_opcode) {
         Ok(Opcodes::CLI(CLIInstruction { }))
     }
+
+    else if bitpat!(1 1 0 0 _ _ _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
+        Ok(Opcodes::RJMP(decode_rjmp(raw_opcode)))
+    }
+
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
         Err(error_str)
@@ -396,6 +402,30 @@ fn decode_pop(opcode_word: u16) -> POPInstruction {
     }
 }
 
+fn decode_rjmp(opcode_word: u16) -> RJMPInstruction {
+    // Extract k
+    /*
+    let mask = 0b111111111111i16;
+    let opcode_word_signed = opcode_word as i16;
+    let k = mask & opcode_word_signed;
+
+
+     */
+    // This is stolen from https://github.com/buserror/simavr/blob/a56b550872906a971ac128002772d90c9e30377d/simavr/sim/sim_core.c#L449
+    // TODO: Why does this work?
+    let k = (((opcode_word << 4) & 0xffff) as i16) >> 3;
+
+    // Sanity check
+    if k <= -2000 || k >= 2000 {
+        panic!("k is out of range for RJMP. Value was: {}", k)
+    }
+
+    RJMPInstruction {
+        k
+    }
+
+}
+
 // Instruction definitions
 
 #[enum_dispatch(Opcodes)]
@@ -585,6 +615,18 @@ pub struct CLIInstruction {
 impl Instruction for CLIInstruction {
     fn pretty_print(&self) {
         println!("CLI")
+    }
+}
+
+//------------------
+#[derive(Debug)]
+pub struct RJMPInstruction {
+    k: i16
+}
+
+impl Instruction for RJMPInstruction {
+    fn pretty_print(&self) {
+        println!("RJMP {}", self.k)
     }
 }
 
