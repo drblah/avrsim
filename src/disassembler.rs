@@ -1,33 +1,11 @@
-use crate::avrcore::*;
-use enum_dispatch::enum_dispatch;
+use crate::instructions::*;
 use crate::hexreader::IhexDump;
 
-#[enum_dispatch]
-#[derive(Debug)]
-pub enum Opcodes {
-    JMP(JMPInstruction),
-    EOR(EORInstruction),
-    OUT(OUTInstruction),
-    LDI(LDIInstruction),
-    CALL(CALLInstruction),
-    PUSH(PUSHInstruction),
-    RCALL(RCALLInstruction),
-    IN(INInstruction),
-    STDy(STDyInstruction),
 
-    LDDy(LDDyInstruction),
-    ADD(ADDInstruction),
-    ADC(ADCInstruction),
-    POP(POPInstruction),
-    RET(RETInstruction),
-    CLI(CLIInstruction),
-    RJMP(RJMPInstruction)
-    //STD(STD_instruction),
-}
 
 enum Status {
     EOF,
-    dissasmError(String)
+    DissasmError(String)
 }
 
 pub fn dissasm_ihex(mut ihex: IhexDump) -> Vec<Opcodes> {
@@ -39,7 +17,7 @@ pub fn dissasm_ihex(mut ihex: IhexDump) -> Vec<Opcodes> {
             Err(err) => {
                 match err {
                     Status::EOF => break,
-                    Status::dissasmError(msg) => panic!("Failed to decode ihex: {}", msg)
+                    Status::DissasmError(msg) => panic!("Failed to decode ihex: {}", msg)
                 }
             }
         }
@@ -57,7 +35,7 @@ pub fn disassm_next(core: &mut Avrcore) -> Opcodes {
  */
 
 fn match_and_decode(ihex: &mut IhexDump) -> Result<Opcodes, Status> {
-    let mut raw_opcode: u16;
+    let raw_opcode: u16;
 
     match ihex.get_next_word() {
         Ok(word) => raw_opcode = word,
@@ -68,7 +46,7 @@ fn match_and_decode(ihex: &mut IhexDump) -> Result<Opcodes, Status> {
     
     // JMP
     if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 0 _)(raw_opcode) {
-        let mut word2:u16;
+        let word2:u16;
         match ihex.get_next_word() {
             Ok(word) => word2 = word,
             Err(_) => return Err(Status::EOF)
@@ -95,7 +73,7 @@ fn match_and_decode(ihex: &mut IhexDump) -> Result<Opcodes, Status> {
 
     // CALL
     else if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 1 _)(raw_opcode){
-        let mut word2: u16;
+        let word2: u16;
         match ihex.get_next_word() {
             Ok(word) => word2 = word,
             Err(_) => return Err(Status::EOF)
@@ -125,21 +103,21 @@ fn match_and_decode(ihex: &mut IhexDump) -> Result<Opcodes, Status> {
     // TODO: IMPLEMENT ME
     else if bitpat!(1 0 0 0 0 0 1 _ _ _ _ _ 1 0 0 0)(raw_opcode){
         let error_str = format!("STD Y unchanged UNIMPLEMENTED: {:#x}", raw_opcode);
-        Err(Status::dissasmError(error_str))
+        Err(Status::DissasmError(error_str))
     }
     
     // STD Y Post incremented
     // TODO: IMPLEMENT ME
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 0 0 1)(raw_opcode){
         let error_str = format!("STD Y Post incremented UNIMPLEMENTED: {:#x}", raw_opcode);
-        Err(Status::dissasmError(error_str))
+        Err(Status::DissasmError(error_str))
     }
 
     // STD Y Pre decremented
     // TODO: IMPLEMENT ME
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 0 1 0)(raw_opcode){
         let error_str = format!("STD Y Pre decremented UNIMPLEMENTED: {:#x}", raw_opcode);
-        Err(Status::dissasmError(error_str))
+        Err(Status::DissasmError(error_str))
     }
 
     // STD Y Unchanged, q: Displacement
@@ -192,7 +170,7 @@ fn match_and_decode(ihex: &mut IhexDump) -> Result<Opcodes, Status> {
     }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
-        Err(Status::dissasmError(error_str))
+        Err(Status::DissasmError(error_str))
         //println!("{:x} - unimplemented opcode", raw_opcode)
     }
 }
@@ -465,210 +443,6 @@ fn decode_rjmp(opcode_word: u16) -> RJMPInstruction {
         k
     }
 
-}
-
-// Instruction definitions
-
-#[enum_dispatch(Opcodes)]
-pub trait Instruction {
-
-    fn pretty_print(&self);
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct JMPInstruction {
-    address: u32
-}
-
-impl Instruction for JMPInstruction {
-    fn pretty_print(&self) {
-        println!("JMP\t{:#04x}", self.address)
-    }
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct EORInstruction {
-    rd: u8,
-    rr: u8
-}
-
-impl Instruction for EORInstruction {
-    fn pretty_print(&self) {
-        println!("EOR\tr{}, r{}", self.rd, self.rr)
-    }
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct OUTInstruction {
-    rr: u8,
-    a: u8
-}
-
-impl Instruction for OUTInstruction {
-    fn pretty_print(&self) {
-        println!("OUT\t{:#04x}, R{}", self.a, self.rr)
-    }
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct LDIInstruction {
-    rd: u8,
-    k: u8
-}
-
-impl Instruction for LDIInstruction {
-    fn pretty_print(&self) {
-        println!("LDI\tR{}, {:#04x}", self.rd, self.k)
-    }
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct CALLInstruction {
-    k: u32
-}
-
-impl Instruction for CALLInstruction {
-    fn pretty_print(&self) {
-        println!("CALL\t{:#04x}", self.k)
-    }
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct PUSHInstruction {
-    rr: u8
-}
-
-impl Instruction for PUSHInstruction {
-    fn pretty_print(&self) {
-        println!("PUSH\tR{}", self.rr)
-    }
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct RCALLInstruction {
-    k: u16
-}
-
-impl Instruction for RCALLInstruction {
-    fn pretty_print(&self) {
-        println!("RCALL\t{}", self.k)
-    }
-}
-
-//---------------------
-#[derive(Debug)]
-pub struct INInstruction {
-    rd: u8,
-    a: u8
-}
-
-impl Instruction for INInstruction {
-    fn pretty_print(&self) {
-        println!("IN\tR{}, {}", self.rd, self.a)
-    }
-}
-
-//--------------------
-#[derive(Debug)]
-pub struct STDyInstruction {
-    rr: u8,
-    q: u8
-}
-
-impl Instruction for STDyInstruction {
-    fn pretty_print(&self) {
-        println!("STD Y+{}, r{}", self.q, self.rr)
-    }
-}
-
-//-------------------
-#[derive(Debug)]
-pub struct LDDyInstruction {
-    rd: u8,
-    q: u8
-}
-
-impl Instruction for LDDyInstruction {
-    fn pretty_print(&self) { println!("LDD R{}, Y+{}", self.rd, self.q)}
-}
-
-//------------------
-#[derive(Debug)]
-pub struct ADDInstruction {
-    rd: u8,
-    rr: u8
-}
-
-impl Instruction for ADDInstruction {
-    fn pretty_print(&self) {
-        println!("ADD R{}, R{}", self.rd, self.rr)
-    }
-}
-
-//------------------
-#[derive(Debug)]
-pub struct ADCInstruction {
-    rd: u8,
-    rr: u8
-}
-
-impl Instruction for ADCInstruction {
-    fn pretty_print(&self) {
-        println!("ADC R{}, R{}", self.rd, self.rr)
-    }
-}
-
-//------------------
-#[derive(Debug)]
-pub struct POPInstruction {
-    rd: u8
-}
-
-impl Instruction for POPInstruction {
-    fn pretty_print(&self) {
-        println!("POP R{}", self.rd)
-    }
-}
-
-//------------------
-#[derive(Debug)]
-pub struct RETInstruction {
-}
-
-impl Instruction for RETInstruction {
-    fn pretty_print(&self) {
-        println!("RET")
-    }
-}
-
-//------------------
-#[derive(Debug)]
-pub struct CLIInstruction {
-}
-
-impl Instruction for CLIInstruction {
-    fn pretty_print(&self) {
-        println!("CLI")
-    }
-}
-
-//------------------
-#[derive(Debug)]
-pub struct RJMPInstruction {
-    k: i16
-}
-
-impl Instruction for RJMPInstruction {
-    fn pretty_print(&self) {
-        println!("RJMP {}", self.k)
-    }
 }
 
 // Tests

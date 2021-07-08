@@ -1,14 +1,13 @@
 mod avrcore;
 mod hexreader;
 mod disassembler;
+mod instructions;
 #[macro_use] extern crate bitpat;
 
 
-use disassembler::Opcodes;
-use crate::disassembler::Instruction;
+use crate::instructions::Instruction;
 
 fn main() {
-
     let ihex = hexreader::ihex_to_dump("testprogram.hex");
     let dissasm = disassembler::dissasm_ihex(ihex);
 

@@ -50,7 +50,6 @@ impl GetNextInstruction for Avrcore {
     }
 }
 
-
 pub fn print_core(core: &Avrcore) {
     println!("Registers:");
     println!("\t{:?}", core.sreg);
