@@ -15,7 +15,8 @@ pub enum Opcodes {
     STDUnCDisp(STDUnCDispInstruction),
 
     LDDy(LDDyInstruction),
-    ADD(ADDInstruction)
+    ADD(ADDInstruction),
+    ADC(ADCInstruction)
     //STD(STD_instruction),
 }
 
@@ -122,6 +123,10 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
 
     else if bitpat!(0 0 0 0 1 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
         Ok(Opcodes::ADD(decode_add(raw_opcode)))
+    }
+
+    else if bitpat!(0 0 0 1 1 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
+        Ok(Opcodes::ADC(decode_adc(raw_opcode)))
     }
 
     else {
@@ -333,6 +338,33 @@ fn decode_add(opcode_word: u16) -> ADDInstruction {
     }
 }
 
+
+fn decode_adc(opcode_word: u16) -> ADCInstruction {
+    // Extract Rr
+    let mask = 0b1000001111u16;
+    let masked = (mask & opcode_word);
+
+    let rr = (0b1111 & masked) | ((0b1000000000 & masked) >> 5);
+
+    // Extract Rd
+    let mask = 0b111110000u16;
+    let rd = (mask & opcode_word) >> 4;
+
+    // Sanity checks
+    // 0 ≤ d ≤ 31, 0 ≤ r ≤ 31
+    if rd > 31 {
+        panic!("Rd is out of range for ADC Rd,Rr. Value was: {}", rd)
+    }
+    if rr > 31 {
+        panic!("Rr is out of range for ADC Rd,Rr. Value was: {}", rr)
+    }
+
+    ADCInstruction {
+        rd: rd as u8,
+        rr: rr as u8
+    }
+}
+
 // Instruction definitions
 
 #[enum_dispatch(Opcodes)]
@@ -475,6 +507,19 @@ pub struct ADDInstruction {
 impl Instruction for ADDInstruction {
     fn pretty_print(&self) {
         println!("ADD R{}, R{}", self.rd, self.rr)
+    }
+}
+
+//------------------
+#[derive(Debug)]
+pub struct ADCInstruction {
+    rd: u8,
+    rr: u8
+}
+
+impl Instruction for ADCInstruction {
+    fn pretty_print(&self) {
+        println!("ADC R{}, R{}", self.rd, self.rr)
     }
 }
 
