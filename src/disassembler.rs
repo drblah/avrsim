@@ -17,7 +17,8 @@ pub enum Opcodes {
     LDDy(LDDyInstruction),
     ADD(ADDInstruction),
     ADC(ADCInstruction),
-    POP(POPInstruction)
+    POP(POPInstruction),
+    RET(RETInstruction)
     //STD(STD_instruction),
 }
 
@@ -132,6 +133,10 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
 
     else if bitpat!(1 0 0 1 0 0 0 _ _ _ _ _ 1 1 1 1)(raw_opcode) {
         Ok(Opcodes::POP(decode_pop(raw_opcode)))
+    }
+
+    else if bitpat!(1 0 0 1 0 1 0 1 0 0 0 0 1 0 0 0)(raw_opcode) {
+        Ok(Opcodes::RET(RETInstruction { }))
     }
 
     else {
@@ -554,6 +559,17 @@ pub struct POPInstruction {
 impl Instruction for POPInstruction {
     fn pretty_print(&self) {
         println!("POP R{}", self.rd)
+    }
+}
+
+//------------------
+#[derive(Debug)]
+pub struct RETInstruction {
+}
+
+impl Instruction for RETInstruction {
+    fn pretty_print(&self) {
+        println!("RET")
     }
 }
 
