@@ -1,5 +1,6 @@
 use crate::avrcore::*;
 use enum_dispatch::enum_dispatch;
+use crate::hexreader::IhexDump;
 
 #[enum_dispatch]
 #[derive(Debug)]
@@ -24,19 +25,56 @@ pub enum Opcodes {
     //STD(STD_instruction),
 }
 
+enum Status {
+    EOF,
+    dissasmError(String)
+}
 
+pub fn dissasm_ihex(mut ihex: IhexDump) -> Vec<Opcodes> {
+    let mut dissasm: Vec<Opcodes> = Vec::new();
+
+    loop {
+        match match_and_decode(&mut ihex) {
+            Ok(decoded) => dissasm.push(decoded),
+            Err(err) => {
+                match err {
+                    Status::EOF => break,
+                    Status::dissasmError(msg) => panic!("Failed to decode ihex: {}", msg)
+                }
+            }
+        }
+    }
+
+    dissasm
+}
+
+/*
 pub fn disassm_next(core: &mut Avrcore) -> Opcodes {
     let decoded = match_and_decode(core).unwrap();
 
     decoded
 }
+ */
 
-fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
-    let raw_opcode = core.get_next();
+fn match_and_decode(ihex: &mut IhexDump) -> Result<Opcodes, Status> {
+    let mut raw_opcode: u16;
+
+    match ihex.get_next_word() {
+        Ok(word) => raw_opcode = word,
+        Err(_) => return Err(Status::EOF)
+    };
+
+    //let raw_opcode = ihex.get_next_word();
     
     // JMP
     if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 0 _)(raw_opcode) {
-        Ok( Opcodes::JMP(decode_jmp(vec![raw_opcode, core.get_next()])))
+        let mut word2:u16;
+        match ihex.get_next_word() {
+            Ok(word) => word2 = word,
+            Err(_) => return Err(Status::EOF)
+        };
+
+        Ok( Opcodes::JMP(decode_jmp(vec![raw_opcode, word2])))
     }
 
     // EOR
@@ -57,7 +95,13 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
 
     // CALL
     else if bitpat!(1 0 0 1 0 1 0 _ _ _ _ _ 1 1 1 _)(raw_opcode){
-        Ok( Opcodes::CALL(decode_call(vec![raw_opcode, core.get_next()])))
+        let mut word2: u16;
+        match ihex.get_next_word() {
+            Ok(word) => word2 = word,
+            Err(_) => return Err(Status::EOF)
+        };
+
+        Ok( Opcodes::CALL(decode_call(vec![raw_opcode, word2])))
         
     }
 
@@ -81,21 +125,21 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
     // TODO: IMPLEMENT ME
     else if bitpat!(1 0 0 0 0 0 1 _ _ _ _ _ 1 0 0 0)(raw_opcode){
         let error_str = format!("STD Y unchanged UNIMPLEMENTED: {:#x}", raw_opcode);
-        Err(error_str)
+        Err(Status::dissasmError(error_str))
     }
     
     // STD Y Post incremented
     // TODO: IMPLEMENT ME
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 0 0 1)(raw_opcode){
         let error_str = format!("STD Y Post incremented UNIMPLEMENTED: {:#x}", raw_opcode);
-        Err(error_str)
+        Err(Status::dissasmError(error_str))
     }
 
     // STD Y Pre decremented
     // TODO: IMPLEMENT ME
     else if bitpat!(1 0 0 1 0 0 1 _ _ _ _ _ 1 0 1 0)(raw_opcode){
         let error_str = format!("STD Y Pre decremented UNIMPLEMENTED: {:#x}", raw_opcode);
-        Err(error_str)
+        Err(Status::dissasmError(error_str))
     }
 
     // STD Y Unchanged, q: Displacement
@@ -143,9 +187,12 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
         Ok(Opcodes::RJMP(decode_rjmp(raw_opcode)))
     }
 
+    else if raw_opcode == 0x0 {
+        Err(Status::EOF)
+    }
     else {
         let error_str = format!("unknown opcode signature: {:#x}", raw_opcode);
-        Err(error_str)
+        Err(Status::dissasmError(error_str))
         //println!("{:x} - unimplemented opcode", raw_opcode)
     }
 }

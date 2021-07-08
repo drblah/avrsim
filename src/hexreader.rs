@@ -34,6 +34,24 @@ struct IhexLine {
     checksum:       u8,
 }
 
+pub struct IhexDump {
+    indexer: usize,
+    data: Vec<u16>
+}
+
+impl IhexDump {
+    pub fn get_next_word(&mut self) -> Result<u16, &str> {
+        if self.indexer < self.data.len() {
+            let next_word = self.data[self.indexer];
+            self.indexer = self.indexer + 1;
+
+            Ok(next_word)
+        } else {
+            Err("End of hexdump")
+        }
+    }
+}
+
 
 
 fn split_ihex_line(line: &str) -> IhexLine {
@@ -104,6 +122,25 @@ fn split_ihex_line(line: &str) -> IhexLine {
         panic!("Encountered {}, but line does not start with ':'", line);
     }
 
+}
+
+pub fn ihex_to_dump(path: &str) -> IhexDump {
+    let mut flash: Vec<u16> = Vec::new();
+
+    let data = fs::read_to_string(path).expect("Cannot read file");
+
+    for line in data.lines() {
+        let ihex = split_ihex_line(line);
+
+        for bytes in ihex.data.chunks(2) {
+            flash.push((bytes[1] as u16) << 8 | (bytes[0] as u16))
+        }
+    }
+
+    IhexDump {
+        indexer: 0,
+        data: flash
+    }
 }
 
 pub fn read_ihex(path: &str, core: &mut Avrcore) {

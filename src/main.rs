@@ -9,6 +9,14 @@ use crate::disassembler::Instruction;
 
 fn main() {
 
+    let ihex = hexreader::ihex_to_dump("testprogram.hex");
+    let dissasm = disassembler::dissasm_ihex(ihex);
+
+    for asm in dissasm {
+        asm.pretty_print()
+    }
+
+    /*
     let mut core = avrcore::Avrcore{
         sreg: avrcore::SREG::default(),
         sp: avrcore::StackPointer::default(),
@@ -21,9 +29,11 @@ fn main() {
     };
 
 
+
     hexreader::read_ihex("testprogram.hex", &mut core);
 
     avrcore::print_core(&core);
+
 
     for _ in 0..188 {
         print!("{:x} ", core.pc);
@@ -32,6 +42,8 @@ fn main() {
 
         instruction.pretty_print();
     }
+
+     */
 
     //println!("{:?}", core);
 
