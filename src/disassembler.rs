@@ -14,7 +14,8 @@ pub enum Opcodes {
     IN(INInstruction),
     STDUnCDisp(STDUnCDispInstruction),
 
-    LDDy(LDDyInstruction)
+    LDDy(LDDyInstruction),
+    ADD(ADDInstruction)
     //STD(STD_instruction),
 }
 
@@ -117,6 +118,11 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
 
     else if bitpat!(1 0 _ 0 _ _ 0 _ _ _ _ _ 1 _ _ _)(raw_opcode) {
         Ok(Opcodes::LDDy(decode_lddy(raw_opcode)))
+    }
+
+    else if bitpat!(0 0 0 0 1 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
+        //panic!("TODO: implement ADD - Add without Carry")
+        Ok(Opcodes::ADD(decode_add(raw_opcode)))
     }
 
     else {
@@ -302,6 +308,23 @@ fn decode_lddy(opcode_word: u16) -> LDDyInstruction {
     }
 }
 
+fn decode_add(opcode_word: u16) -> ADDInstruction {
+    // Extract Rr
+    let mask = 0b1000001111u16;
+    let masked = (mask & opcode_word);
+
+    let rr = (0b1111 & masked) | ((0b1000000000 & masked) >> 5);
+
+    // Extract Rd
+    let mask = 0b111110000u16;
+    let rd = (mask & opcode_word) >> 4;
+
+    ADDInstruction {
+        rd: rd as u8,
+        rr: rr as u8
+    }
+}
+
 // Instruction definitions
 
 #[enum_dispatch(Opcodes)]
@@ -432,6 +455,19 @@ pub struct LDDyInstruction {
 
 impl Instruction for LDDyInstruction {
     fn pretty_print(&self) { println!("LDD R{}, Y+{}", self.rd, self.q)}
+}
+
+//------------------
+#[derive(Debug)]
+pub struct ADDInstruction {
+    rd: u8,
+    rr: u8
+}
+
+impl Instruction for ADDInstruction {
+    fn pretty_print(&self) {
+        println!("ADD R{}, R{}", self.rd, self.rr)
+    }
 }
 
 // Tests
