@@ -16,7 +16,8 @@ pub enum Opcodes {
 
     LDDy(LDDyInstruction),
     ADD(ADDInstruction),
-    ADC(ADCInstruction)
+    ADC(ADCInstruction),
+    POP(POPInstruction)
     //STD(STD_instruction),
 }
 
@@ -127,6 +128,10 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
 
     else if bitpat!(0 0 0 1 1 1 _ _ _ _ _ _ _ _ _ _)(raw_opcode) {
         Ok(Opcodes::ADC(decode_adc(raw_opcode)))
+    }
+
+    else if bitpat!(1 0 0 1 0 0 0 _ _ _ _ _ 1 1 1 1)(raw_opcode) {
+        Ok(Opcodes::POP(decode_pop(raw_opcode)))
     }
 
     else {
@@ -365,6 +370,23 @@ fn decode_adc(opcode_word: u16) -> ADCInstruction {
     }
 }
 
+fn decode_pop(opcode_word: u16) -> POPInstruction {
+    // Extract Rd
+    let mask = 0b111110000u16;
+    let masked = (mask & opcode_word);
+
+    let rd = masked >> 4;
+
+    // Sanity check
+    if rd > 31 {
+        panic!("Rd is out of range for POP Rd. Value was: {}", rd)
+    }
+
+    POPInstruction {
+        rd: rd as u8
+    }
+}
+
 // Instruction definitions
 
 #[enum_dispatch(Opcodes)]
@@ -520,6 +542,18 @@ pub struct ADCInstruction {
 impl Instruction for ADCInstruction {
     fn pretty_print(&self) {
         println!("ADC R{}, R{}", self.rd, self.rr)
+    }
+}
+
+//------------------
+#[derive(Debug)]
+pub struct POPInstruction {
+    rd: u8
+}
+
+impl Instruction for POPInstruction {
+    fn pretty_print(&self) {
+        println!("POP R{}", self.rd)
     }
 }
 
