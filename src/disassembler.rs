@@ -12,7 +12,9 @@ pub enum Opcodes {
     PUSH(PUSHInstruction),
     RCALL(RCALLInstruction),
     IN(INInstruction),
-    STDUnCDisp(STDUnCDispInstruction)
+    STDUnCDisp(STDUnCDispInstruction),
+
+    LDDy(LDDyInstruction)
     //STD(STD_instruction),
 }
 
@@ -97,12 +99,24 @@ fn match_and_decode(core: &mut Avrcore) -> Result<Opcodes, String> {
     }
 
     // STD Y Unchanged, q: Displacement
-    // TODO: IMPLEMENT ME
     else if bitpat!(1 0 _ 0 _ _ 1 _ _ _ _ _ 1 _ _ _)(raw_opcode){
         Ok(Opcodes::STDUnCDisp(decode_stdUnCDisp(raw_opcode)))
+    }
 
-        //let error_str = format!("STD Y Unchanged, q: Displacement: {:#x}", raw_opcode);
-        //Err(error_str)
+    else if bitpat!(1 0 0 0 0 0 0 _ _ _ _ _ 1 0 0 0)(raw_opcode){
+        panic!("TODO: implement LDD Y: Unchanged")
+    }
+
+    else if bitpat!(1 0 0 1 0 0 0 _ _ _ _ _ 1 0 0 1)(raw_opcode){
+        panic!("TODO: implement LDD Y: Post incremented")
+    }
+
+    else if bitpat!(1 0 0 1 0 0 0 _ _ _ _ _ 1 0 1 0)(raw_opcode){
+        panic!("TODO: implement LDD Y: Pre decremented")
+    }
+
+    else if bitpat!(1 0 _ 0 _ _ 0 _ _ _ _ _ 1 _ _ _)(raw_opcode) {
+        Ok(Opcodes::LDDy(decode_lddy(raw_opcode)))
     }
 
     else {
@@ -245,8 +259,45 @@ fn decode_stdUnCDisp(opcode_word: u16) -> STDUnCDispInstruction {
     let mask = 0b111110000u16;
     let rr = (mask & opcode_word) >> 4;
 
+    // Sanity check
+    // 0 ≤ r ≤ 31, 0 ≤ q ≤ 63
+    if rr > 31 {
+        panic!("Rr is out of range for STD Y+q, Rr. Value was: {}. Aborting!", rr)
+    }
+    if q > 63 {
+        panic!("q is out of range for STD Y+q, Rr. Value was: {}. Aborting!", q)
+    }
+
     STDUnCDispInstruction {
         rr: rr as u8,
+        q: q as u8
+    }
+}
+
+fn decode_lddy(opcode_word: u16) -> LDDyInstruction {
+    // Extract q
+    let mask = 0b0010110000000111u16;
+    let masked = (mask & opcode_word);
+
+    let q = (0b111 & masked) // Least significant bits
+        | ((0b110000000000u16 & masked) >> 7) // Middle bits
+        | ((0b10000000000000u16 & masked) >> 8); // Most significant bits
+
+    // Extract Rd
+    let mask = 0b111110000u16;
+    let rd = (mask & opcode_word) >> 4;
+
+    // Sanity check
+    // 0 ≤ d ≤ 31, 0 ≤ q ≤ 63
+    if rd > 31 {
+        panic!("Rd is out of range for LDD Rd, Y+q. Value was: {}. Aborting!", rd)
+    }
+    if q > 63 {
+        panic!("q is out of range for LDD Rd, Y+q. Value was {}. Aborting!", q)
+    }
+
+    LDDyInstruction {
+        rd: rd as u8,
         q: q as u8
     }
 }
@@ -370,6 +421,17 @@ impl Instruction for STDUnCDispInstruction {
     fn pretty_print(&self) {
         println!("STD Y+{}, r{}", self.q, self.rr)
     }
+}
+
+//-------------------
+#[derive(Debug)]
+pub struct LDDyInstruction {
+    rd: u8,
+    q: u8
+}
+
+impl Instruction for LDDyInstruction {
+    fn pretty_print(&self) { println!("LDD R{}, Y+{}", self.rd, self.q)}
 }
 
 // Tests
