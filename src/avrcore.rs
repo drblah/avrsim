@@ -18,8 +18,30 @@ pub struct SREG {
 #[allow(non_snake_case)]
 #[derive(Default, Debug)]
 pub struct StackPointer {
-    SPH: u8,
-    SPL: u8,
+    pub SPH: u8,
+    pub SPL: u8,
+}
+
+impl StackPointer {
+    pub fn getCurrentAddr(&self) -> u16 {
+        self.SPH as u16 | self.SPL as u16
+    }
+
+    pub fn decrement(&mut self, n: u16) {
+        let mut currentAddr = self.SPH as u16 | self.SPL as u16;
+        currentAddr -= n;
+
+        self.SPL = (currentAddr & 0xFF) as u8;
+        self.SPH = (currentAddr >> 8) as u8;
+    }
+
+    pub fn increment(&mut self, n: u16) {
+        let mut currentAddr = self.SPH as u16 | self.SPL as u16;
+        currentAddr += n;
+
+        self.SPL = (currentAddr & 0xFF) as u8;
+        self.SPH = (currentAddr >> 8) as u8;
+    }
 }
 
 pub struct Avrcore {
