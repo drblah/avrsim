@@ -85,7 +85,7 @@ impl Instruction for OUTInstruction {
     }
 
     fn execute(&self, core: &mut Avrcore) {
-        core.io[self.a as usize] = self.rr;
+        core.io[self.a as usize] = core.general[self.rr as usize];
 
         core.pc.add_assign(1);
     }
