@@ -1,4 +1,5 @@
 use crate::instructions::{Opcodes, Instruction};
+use std::collections::HashMap;
 
 // Status register
 #[allow(non_snake_case)]
@@ -58,12 +59,12 @@ pub struct Avrcore {
 
     // Storage
     //pub flash: [u16; 16383], // 32Kbytes flash organized as 16K x 16
-    pub flash: Vec<Opcodes>
+    pub flash: HashMap<usize, Opcodes>
 }
 
 impl Avrcore {
     pub fn execute(&mut self) {
-        let opcode = self.flash[self.pc as usize];
+        let opcode = self.flash.get(&(self.pc as usize)).unwrap().clone();
 
         opcode.execute(self)
     }

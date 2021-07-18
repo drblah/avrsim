@@ -39,7 +39,7 @@ pub trait Instruction {
 //---------------------
 #[derive(Debug, Copy, Clone)]
 pub struct JMPInstruction {
-    pub address: usize
+    pub address: u16
 }
 
 impl Instruction for JMPInstruction {
@@ -48,7 +48,7 @@ impl Instruction for JMPInstruction {
     }
 
     fn execute(&self, core: &mut Avrcore) {
-        core.pc = self.address/4;
+        core.pc = self.address as u16;
     }
 }
 
@@ -67,7 +67,7 @@ impl Instruction for EORInstruction {
     fn execute(&self, core: &mut Avrcore) {
         core.general[self.rd as usize] = core.general[self.rd as usize] ^ core.general[self.rr as usize];
 
-        core.pc.add_assign(1)
+        core.pc.add_assign(2)
     }
 
 }
@@ -87,7 +87,7 @@ impl Instruction for OUTInstruction {
     fn execute(&self, core: &mut Avrcore) {
         core.io[self.a as usize] = core.general[self.rr as usize];
 
-        core.pc.add_assign(1);
+        core.pc.add_assign(2);
     }
 }
 
@@ -106,7 +106,7 @@ impl Instruction for LDIInstruction {
     fn execute(&self, core: &mut Avrcore) {
         core.general[self.rd as usize] = self.k;
 
-        core.pc.add_assign(1)
+        core.pc.add_assign(2)
     }
 
 }
@@ -122,6 +122,19 @@ impl Instruction for CALLInstruction {
         println!("CALL\t{:#04x}", self.k)
     }
 
+    fn execute(&self, core: &mut Avrcore) {
+        // Store current PC by splitting it into two u8 and put it on the stack
+        let pc = core.pc + 4; // Point to next instruction. NOTE: the real CPU adds 2. However our flash memory operates on bytes and not words (2*bytes).
+        let lowerBytes = (pc & 0xFF) as u8;
+        let upperBytes = ((pc) >> 8) as u8;
+
+        core.sram[core.sp.getCurrentAddr() as usize] = lowerBytes;
+        core.sp.decrement(1);
+        core.sram[core.sp.getCurrentAddr() as usize] = upperBytes;
+        core.sp.decrement(1);
+
+        core.pc = self.k as u16;
+    }
 }
 
 //---------------------

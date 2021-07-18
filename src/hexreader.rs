@@ -50,6 +50,10 @@ impl IhexDump {
             Err("End of hexdump")
         }
     }
+
+    pub fn getIndex(&self) -> usize {
+        self.indexer*2
+    }
 }
 
 

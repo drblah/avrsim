@@ -5,11 +5,12 @@ mod instructions;
 #[macro_use] extern crate bitpat;
 
 
-use crate::instructions::Instruction;
+use crate::instructions::{Instruction, Opcodes};
+use std::collections::HashMap;
 
 fn main() {
     let ihex = hexreader::ihex_to_dump("testprogram.hex");
-    let dissasm = disassembler::dissasm_ihex(ihex);
+    let (dissasm, flash_idx) = disassembler::dissasm_ihex(ihex);
 
     /*
     for asm in &dissasm {
@@ -18,6 +19,7 @@ fn main() {
 
      */
 
+    let flash_map: HashMap<usize, Opcodes> = flash_idx.iter().cloned().zip(dissasm.iter().cloned()).collect();
 
     let mut core = avrcore::Avrcore{
         sreg: avrcore::SREG::default(),
@@ -27,7 +29,7 @@ fn main() {
         io: [0; 64],
         extio: [0; 160],
         sram: [0; 2047],
-        flash: dissasm,
+        flash: flash_map,
     };
 
     loop {

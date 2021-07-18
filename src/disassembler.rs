@@ -8,12 +8,16 @@ enum Status {
     DissasmError(String)
 }
 
-pub fn dissasm_ihex(mut ihex: IhexDump) -> Vec<Opcodes> {
+pub fn dissasm_ihex(mut ihex: IhexDump) -> (Vec<Opcodes>, Vec<usize>) {
     let mut dissasm: Vec<Opcodes> = Vec::new();
+    let mut flash_index: Vec<usize> = Vec::new();
 
     loop {
+        flash_index.push(ihex.getIndex());
         match match_and_decode(&mut ihex) {
-            Ok(decoded) => dissasm.push(decoded),
+            Ok(decoded) => {
+                dissasm.push(decoded);
+            },
             Err(err) => {
                 match err {
                     Status::EOF => break,
@@ -23,7 +27,9 @@ pub fn dissasm_ihex(mut ihex: IhexDump) -> Vec<Opcodes> {
         }
     }
 
-    dissasm
+    flash_index.remove(flash_index.len()-1);
+
+    (dissasm, flash_index)
 }
 
 /*
@@ -190,7 +196,7 @@ fn decode_jmp(opcode_words: Vec<u16>) -> JMPInstruction {
     let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_words[1] as u32)<<1;
 
     JMPInstruction {
-        address: jmp_addr as usize
+        address: jmp_addr as u16
     }
 }
 
