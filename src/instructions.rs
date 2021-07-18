@@ -1,5 +1,6 @@
 use enum_dispatch::enum_dispatch;
 use crate::avrcore::Avrcore;
+use std::ops::AddAssign;
 
 #[enum_dispatch]
 #[derive(Debug, Copy, Clone)]
@@ -63,6 +64,12 @@ impl Instruction for EORInstruction {
         println!("EOR\tr{}, r{}", self.rd, self.rr)
     }
 
+    fn execute(&self, core: &mut Avrcore) {
+        core.general[self.rd as usize] = core.general[self.rd as usize] ^ core.general[self.rr as usize];
+
+        core.pc.add_assign(1)
+    }
+
 }
 
 //---------------------
@@ -77,6 +84,11 @@ impl Instruction for OUTInstruction {
         println!("OUT\t{:#04x}, R{}", self.a, self.rr)
     }
 
+    fn execute(&self, core: &mut Avrcore) {
+        core.io[self.a as usize] = self.rr;
+
+        core.pc.add_assign(1);
+    }
 }
 
 //---------------------
