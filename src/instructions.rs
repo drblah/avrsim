@@ -148,6 +148,13 @@ impl Instruction for PUSHInstruction {
         println!("PUSH\tR{}", self.rr)
     }
 
+    fn execute(&self, core: &mut Avrcore) {
+        core.sram[core.sp.getCurrentAddr() as usize] = self.rr;
+        core.sp.decrement(1);
+
+        core.pc.add_assign(2);
+    }
+
 }
 
 //---------------------
