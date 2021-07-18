@@ -21,12 +21,12 @@ fn main() {
 
     let mut core = avrcore::Avrcore{
         sreg: avrcore::SREG::default(),
-        sp: avrcore::StackPointer::default(),
+        sp: avrcore::StackPointer{ SPH: 0xFF, SPL: 0xFF },
         pc: 0,
         general: [0; 32],
         io: [0; 64],
         extio: [0; 160],
-        sram: [0; 1048],
+        sram: [0; 2047],
         flash: dissasm,
     };
 
