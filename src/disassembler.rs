@@ -190,7 +190,7 @@ fn decode_jmp(opcode_words: Vec<u16>) -> JMPInstruction {
     let jmp_addr = ((top_5_bits | top_6_bit) as u32 | opcode_words[1] as u32)<<1;
 
     JMPInstruction {
-        address: jmp_addr
+        address: jmp_addr as usize
     }
 }
 

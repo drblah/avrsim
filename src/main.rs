@@ -11,9 +11,12 @@ fn main() {
     let ihex = hexreader::ihex_to_dump("testprogram.hex");
     let dissasm = disassembler::dissasm_ihex(ihex);
 
+    /*
     for asm in &dissasm {
         asm.pretty_print()
     }
+
+     */
 
 
     let mut core = avrcore::Avrcore{
@@ -27,5 +30,7 @@ fn main() {
         flash: dissasm,
     };
 
-
+    loop {
+        core.execute()
+    }
 }

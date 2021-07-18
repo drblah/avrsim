@@ -1,4 +1,4 @@
-use crate::instructions::Opcodes;
+use crate::instructions::{Opcodes, Instruction};
 
 // Status register
 #[allow(non_snake_case)]
@@ -37,6 +37,14 @@ pub struct Avrcore {
     // Storage
     //pub flash: [u16; 16383], // 32Kbytes flash organized as 16K x 16
     pub flash: Vec<Opcodes>
+}
+
+impl Avrcore {
+    pub fn execute(&mut self) {
+        let opcode = self.flash[self.pc];
+
+        opcode.execute(self)
+    }
 }
 
 pub fn print_core(core: &Avrcore) {
