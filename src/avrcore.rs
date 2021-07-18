@@ -26,13 +26,13 @@ pub struct Avrcore {
     // Registers
     pub sreg: SREG, // Status register
     pub sp: StackPointer, // Stack Pointer
-    pub pc: usize, // Program counter
+    pub pc: u16, // Program counter
 
     // Memories
     pub general: [u8; 32], // General purpose register file 0x0000 - 0x001F
     pub io: [u8; 64], // IO Registers 0x0020 - 0x005F
     pub extio: [u8; 160], // Extended IO 0x0060 - 0x00FF
-    pub sram: [u8; 1048], // Internal SRAM 0x0100 - 0x08FF
+    pub sram: [u8; 2047], // Internal SRAM 0x0100 - 0x08FF
 
     // Storage
     //pub flash: [u16; 16383], // 32Kbytes flash organized as 16K x 16
@@ -41,7 +41,7 @@ pub struct Avrcore {
 
 impl Avrcore {
     pub fn execute(&mut self) {
-        let opcode = self.flash[self.pc];
+        let opcode = self.flash[self.pc as usize];
 
         opcode.execute(self)
     }
