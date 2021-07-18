@@ -103,6 +103,12 @@ impl Instruction for LDIInstruction {
         println!("LDI\tR{}, {:#04x}", self.rd, self.k)
     }
 
+    fn execute(&self, core: &mut Avrcore) {
+        core.general[self.rd as usize] = self.k;
+
+        core.pc.add_assign(1)
+    }
+
 }
 
 //---------------------
