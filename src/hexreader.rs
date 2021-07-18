@@ -142,21 +142,3 @@ pub fn ihex_to_dump(path: &str) -> IhexDump {
         data: flash
     }
 }
-
-pub fn read_ihex(path: &str, core: &mut Avrcore) {
-    let data = fs::read_to_string(path).expect("Cannot read file");
-
-    let mut flash_index = 0;
-
-    for line in data.lines() {
-        let ihex = split_ihex_line(line);
-
-        for bytes in ihex.data.chunks(2) {
-            core.flash[flash_index] = (bytes[1] as u16)<<8 | (bytes[0] as u16) ;
-            flash_index = flash_index + 1;
-        }
-        //println!("{}", line);
-    }
-
-    //println!("{}", data);
-}

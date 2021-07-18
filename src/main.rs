@@ -11,11 +11,11 @@ fn main() {
     let ihex = hexreader::ihex_to_dump("testprogram.hex");
     let dissasm = disassembler::dissasm_ihex(ihex);
 
-    for asm in dissasm {
+    for asm in &dissasm {
         asm.pretty_print()
     }
 
-    /*
+
     let mut core = avrcore::Avrcore{
         sreg: avrcore::SREG::default(),
         sp: avrcore::StackPointer::default(),
@@ -24,29 +24,8 @@ fn main() {
         io: [0; 64],
         extio: [0; 160],
         sram: [0; 1048],
-        flash: [0; 16383],
+        flash: dissasm,
     };
 
 
-
-    hexreader::read_ihex("testprogram.hex", &mut core);
-
-    avrcore::print_core(&core);
-
-
-    for _ in 0..188 {
-        print!("{:x} ", core.pc);
-
-        let instruction: Opcodes = disassembler::disassm_next(&mut core);
-
-        instruction.pretty_print();
-    }
-
-     */
-
-    //println!("{:?}", core);
-
-
-
-    //println!("Hello, world!");
 }

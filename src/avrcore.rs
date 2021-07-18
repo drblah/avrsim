@@ -1,3 +1,4 @@
+use crate::instructions::Opcodes;
 
 // Status register
 #[allow(non_snake_case)]
@@ -34,20 +35,8 @@ pub struct Avrcore {
     pub sram: [u8; 1048], // Internal SRAM 0x0100 - 0x08FF
 
     // Storage
-    pub flash: [u16; 16383], // 32Kbytes flash organized as 16K x 16
-}
-
-pub trait GetNextInstruction {
-    fn get_next(&mut self) -> u16;
-}
-
-impl GetNextInstruction for Avrcore {
-    fn get_next(&mut self) -> u16 {
-        let instruction = self.flash[self.pc];
-        self.pc = self.pc + 1;
-
-        instruction
-    }
+    //pub flash: [u16; 16383], // 32Kbytes flash organized as 16K x 16
+    pub flash: Vec<Opcodes>
 }
 
 pub fn print_core(core: &Avrcore) {
